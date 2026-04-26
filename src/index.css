@@ -1,0 +1,16 @@
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: #f8f9fa;
+}
+
+.bg-dark {
+  background-color: #0d1b2a !important;
+}
+
+.nav-link {
+  transition: background-color 0.3s ease;
+}
+
+.nav-link:hover {
+  background-color: #1b263b !important;
+}
