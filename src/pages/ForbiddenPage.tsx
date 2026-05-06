@@ -1,8 +1,9 @@
 import { Alert, Button, Card, Container } from 'react-bootstrap';
-import { Link } from 'react-router-dom';
 import { FiShieldOff, FiHome } from 'react-icons/fi';
+import { useNavigate } from 'react-router-dom';
 
 export default function ForbiddenPage() {
+  const navigate = useNavigate();
   return (
     <Container fluid className="py-4">
       <Card className="mx-auto" style={{ maxWidth: 720 }}>
@@ -20,11 +21,11 @@ export default function ForbiddenPage() {
           </Alert>
 
           <div className="d-flex flex-column flex-sm-row gap-2 justify-content-center">
-            <Button as={Link} to="/sales" variant="primary">
+            <Button variant="primary" onClick={() => navigate('/sales')}>
               <FiHome className="me-2" />
               Volver a Ventas
             </Button>
-            <Button as={Link} to="/mi-cartera" variant="outline-secondary">
+            <Button variant="outline-secondary" onClick={() => navigate('/mi-cartera')}>
               Ir a Mi Cartera
             </Button>
           </div>

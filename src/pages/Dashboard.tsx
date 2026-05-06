@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Container, Row, Col, Card, Table, Badge, Alert } from 'react-bootstrap';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import { 
@@ -38,6 +39,20 @@ ChartJS.register(
   Filler
 );
 
+// Module-level chart options — stable object references, no re-init on re-render
+const lineChartOptions = {
+  responsive: true,
+  plugins: { legend: { display: false } },
+  scales: { y: { beginAtZero: true } },
+};
+
+const doughnutOptions = {
+  responsive: true,
+  plugins: { legend: { position: 'bottom' as const } },
+};
+
+const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
 function Dashboard() {
   const { data: stats, isLoading: statsLoading, error: statsError } = useDashboardStats();
   const { data: sales = [], isLoading: salesLoading } = useSales();
@@ -46,6 +61,80 @@ function Dashboard() {
   
   const isLoading = statsLoading || salesLoading;
   
+  // Memoized lookup map — O(1) customer name lookup instead of O(n) per call
+  const customerMap = useMemo(
+    () => new Map(customers.map(c => [c.id, `${c.name} ${c.lastName}`])),
+    [customers]
+  );
+  const getCustomerName = (id: number) => customerMap.get(id) ?? 'Desconocido';
+
+  // All derived computations memoized — only recalculate when sales/sellers change
+  const derivedStats = useMemo(() => {
+    const paidSales = sales.filter(s => s.isPaid);
+    const pendingSales = sales.filter(s => !s.isPaid);
+    const pendingCommissions = sales.filter(s => s.isPaid && !s.isCommissionPaid);
+    const totalCommissionsPending = pendingCommissions.reduce((sum, s) => sum + s.commissionAmount, 0);
+    const totalProfit = paidSales.reduce((sum, s) => sum + (s.totalAmount - (s.costPrice ?? 0)), 0);
+    const recentSales = [...sales]
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 5);
+    return { paidSales, pendingSales, pendingCommissions, totalCommissionsPending, totalProfit, recentSales };
+  }, [sales]);
+
+  const sellerStats = useMemo(() => sellers.map(seller => {
+    const sellerSales = sales.filter(s => s.sellerId === seller.id);
+    const totalSales = sellerSales.reduce((sum, s) => sum + s.totalAmount, 0);
+    const totalCommission = sellerSales.reduce((sum, s) => sum + s.commissionAmount, 0);
+    return { ...seller, salesCount: sellerSales.length, totalSales, totalCommission };
+  }).sort((a, b) => b.totalSales - a.totalSales).slice(0, 5), [sales, sellers]);
+
+  const salesChartData = useMemo(() => {
+    const currentMonth = new Date().getMonth();
+    const last6Months = Array.from({ length: 6 }, (_, i) => {
+      const monthIndex = (currentMonth - 5 + i + 12) % 12;
+      return monthNames[monthIndex];
+    });
+    const salesByMonth = Array.from({ length: 6 }, (_, i) => {
+      const monthIndex = (currentMonth - 5 + i + 12) % 12;
+      return sales.filter(s => new Date(s.date).getMonth() === monthIndex)
+        .reduce((sum, s) => sum + s.totalAmount, 0);
+    });
+    return {
+      labels: last6Months,
+      datasets: [{
+        label: 'Ventas',
+        data: salesByMonth,
+        borderColor: 'rgb(75, 192, 192)',
+        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+        fill: true,
+        tension: 0.4,
+      }],
+    };
+  }, [sales]);
+
+  const statusChartData = useMemo(() => ({
+    labels: ['Liquidadas', 'Pendientes'],
+    datasets: [{
+      data: [derivedStats.paidSales.length, derivedStats.pendingSales.length],
+      backgroundColor: ['#198754', '#ffc107'],
+      borderWidth: 0,
+    }],
+  }), [derivedStats.paidSales.length, derivedStats.pendingSales.length]);
+
+  const commissionChartData = useMemo(() => ({
+    labels: ['Pagadas', 'Pendientes'],
+    datasets: [{
+      data: [
+        sales.filter(s => s.isCommissionPaid).length,
+        derivedStats.pendingCommissions.length,
+      ],
+      backgroundColor: ['#0d6efd', '#dc3545'],
+      borderWidth: 0,
+    }],
+  }), [sales, derivedStats.pendingCommissions.length]);
+
+  const { paidSales, pendingSales, pendingCommissions, totalCommissionsPending, totalProfit, recentSales } = derivedStats;
+
   if (isLoading) {
     return <LoadingSpinner message="Cargando dashboard..." fullPage />;
   }
@@ -53,93 +142,6 @@ function Dashboard() {
   if (statsError) {
     return <ErrorAlert error={statsError} title="Error al cargar estadísticas" />;
   }
-  
-  // Calculate additional stats from sales data
-  const paidSales = sales.filter(s => s.isPaid);
-  const pendingSales = sales.filter(s => !s.isPaid);
-  const pendingCommissions = sales.filter(s => s.isPaid && !s.isCommissionPaid);
-  const totalCommissionsPending = pendingCommissions.reduce((sum, s) => sum + s.commissionAmount, 0);
-  const totalProfit = paidSales.reduce((sum, s) => sum + (s.totalAmount - s.costPrice), 0);
-  
-  // Recent sales (last 5)
-  const recentSales = [...sales]
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 5);
-  
-  // Get customer name
-  const getCustomerName = (customerId: number) => {
-    const customer = customers.find(c => c.id === customerId);
-    return customer ? `${customer.name} ${customer.lastName}` : 'Desconocido';
-  };
-  
-  // Chart data - Sales by month
-  const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-  const currentMonth = new Date().getMonth();
-  const last6Months = Array.from({ length: 6 }, (_, i) => {
-    const monthIndex = (currentMonth - 5 + i + 12) % 12;
-    return monthNames[monthIndex];
-  });
-  
-  // Calculate sales by month
-  const salesByMonth = last6Months.map((_, i) => {
-    const monthIndex = (currentMonth - 5 + i + 12) % 12;
-    return sales.filter(s => new Date(s.date).getMonth() === monthIndex)
-      .reduce((sum, s) => sum + s.totalAmount, 0);
-  });
-  
-  const salesChartData = {
-    labels: last6Months,
-    datasets: [
-      {
-        label: 'Ventas',
-        data: salesByMonth,
-        borderColor: 'rgb(75, 192, 192)',
-        backgroundColor: 'rgba(75, 192, 192, 0.2)',
-        fill: true,
-        tension: 0.4,
-      },
-    ],
-  };
-  
-  // Status distribution chart
-  const statusChartData = {
-    labels: ['Liquidadas', 'Pendientes'],
-    datasets: [
-      {
-        data: [paidSales.length, pendingSales.length],
-        backgroundColor: ['#198754', '#ffc107'],
-        borderWidth: 0,
-      },
-    ],
-  };
-  
-  // Commission status chart
-  const commissionChartData = {
-    labels: ['Pagadas', 'Pendientes'],
-    datasets: [
-      {
-        data: [
-          sales.filter(s => s.isCommissionPaid).length,
-          pendingCommissions.length,
-        ],
-        backgroundColor: ['#0d6efd', '#dc3545'],
-        borderWidth: 0,
-      },
-    ],
-  };
-  
-  // Top sellers
-  const sellerStats = sellers.map(seller => {
-    const sellerSales = sales.filter(s => s.sellerId === seller.id);
-    const totalSales = sellerSales.reduce((sum, s) => sum + s.totalAmount, 0);
-    const totalCommission = sellerSales.reduce((sum, s) => sum + s.commissionAmount, 0);
-    return {
-      ...seller,
-      salesCount: sellerSales.length,
-      totalSales,
-      totalCommission,
-    };
-  }).sort((a, b) => b.totalSales - a.totalSales).slice(0, 5);
 
   return (
     <Container fluid>

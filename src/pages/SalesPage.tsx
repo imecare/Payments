@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useContext } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { 
   Button, Table, Modal, Form, Row, Col, Badge, InputGroup, 
   ProgressBar, Card, Alert 
@@ -19,7 +19,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorAlert from '../components/ErrorAlert';
 import ConfirmModal from '../components/ConfirmModal';
 import StatCard from '../components/StatCard';
-import { AuthContext } from '../auth/AuthContext';
+import { useAuth } from '../auth/AuthContext';
 
 const emptySale: CreateSaleDTO = { 
   customerId: 0,
@@ -204,7 +204,7 @@ function SaleDetailModal({
 }
 
 export default function SalesPage() {
-  const { isSuperAdmin, isCommissionist, user } = useContext(AuthContext);
+  const { isSuperAdmin, isCommissionist, user } = useAuth();
   const dataScope: 'all' | 'mine' = isCommissionist ? 'mine' : 'all';
   // Data fetching with React Query
   const { data: sales = [], isLoading, error, refetch } = useSales(dataScope);
@@ -430,7 +430,7 @@ export default function SalesPage() {
           </p>
         </div>
         {isSuperAdmin && (
-          <Button variant="primary" onClick={handleOpenModal}>
+          <Button variant="primary" onClick={() => handleOpenModal()}>
             <FiPlus className="me-2" />
             Nueva Venta
           </Button>

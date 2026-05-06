@@ -1,6 +1,6 @@
-import { useContext, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
-import { AuthContext } from './AuthContext';
+import { useAuth } from './AuthContext';
 
 interface RoleRouteProps {
   children: ReactNode;
@@ -9,7 +9,7 @@ interface RoleRouteProps {
 }
 
 export default function RoleRoute({ children, allow, fallbackTo = '/forbidden' }: RoleRouteProps) {
-  const { user } = useContext(AuthContext);
+  const { user } = useAuth();
 
   if (!user) {
     return <Navigate to="/login" replace />;

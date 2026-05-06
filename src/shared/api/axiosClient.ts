@@ -34,8 +34,9 @@ axiosClient.interceptors.response.use(
   (response: AxiosResponse) => response,
   (error: AxiosError) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('authToken');
-      window.location.href = '/login';
+      // Dispatch event so AuthContext handles logout + navigation via React Router
+      // instead of doing a hard browser redirect that clears all React state.
+      window.dispatchEvent(new Event('auth:unauthorized'));
     }
     return Promise.reject(error);
   }

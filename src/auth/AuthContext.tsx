@@ -1,4 +1,6 @@
-import { createContext, useState, ReactNode } from 'react';
+import { createContext, useState, useContext, useEffect, useRef, ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 
 type AppRole = 'super_admin' | 'commissionist' | 'unknown';
 
@@ -70,11 +72,18 @@ function buildDisplayName(firstName?: string, lastName?: string): string | undef
   return fullName || undefined;
 }
 
+/** Returns null if token is expired or invalid */
 function buildUserFromToken(
   token: string,
   seed?: { firstName?: string; lastName?: string; email?: string }
-): AuthUser {
-  const payload = parseJwtPayload(token) ?? {};
+): AuthUser | null {
+  const payload = parseJwtPayload(token);
+  if (!payload) return null;
+
+  // Validate expiry — exp is Unix seconds
+  const exp = typeof payload['exp'] === 'number' ? payload['exp'] : null;
+  if (exp !== null && exp * 1000 < Date.now()) return null;
+
   const role = normalizeRole(
     readStringClaim(payload, [
       'Role',
@@ -115,6 +124,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const token = localStorage.getItem('authToken');
     if (!token) return null;
     const parsed = buildUserFromToken(token);
+    if (!parsed) { localStorage.removeItem('authToken'); return null; }
     if (parsed.role === 'commissionist' && !parsed.sellerId) {
       localStorage.removeItem('authToken');
       return null;
@@ -126,6 +136,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = (payload: { token: string; firstName?: string; lastName?: string; email?: string }) => {
     localStorage.setItem('authToken', payload.token);
     const parsed = buildUserFromToken(payload.token, payload);
+    if (!parsed) {
+      localStorage.removeItem('authToken');
+      throw new Error('Token inválido o expirado.');
+    }
     if (parsed.role === 'commissionist' && !parsed.sellerId) {
       localStorage.removeItem('authToken');
       setUser(null);
@@ -134,10 +148,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(parsed);
   };
 
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  // Stable ref to logout so the event listener always calls the latest version
+  const logoutRef = useRef<() => void>(() => {});
+
   const logout = () => {
     localStorage.removeItem('authToken');
     setUser(null);
+    queryClient.clear();
+    navigate('/login', { replace: true });
   };
+
+  // Keep ref in sync
+  logoutRef.current = logout;
+
+  // Listen for 401 events dispatched by axiosClient interceptor
+  useEffect(() => {
+    const handler = () => logoutRef.current();
+    window.addEventListener('auth:unauthorized', handler);
+    return () => window.removeEventListener('auth:unauthorized', handler);
+  }, []);
 
   const isSuperAdmin = user?.role === 'super_admin';
   const isCommissionist = user?.role === 'commissionist';
@@ -148,3 +179,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     </AuthContext.Provider>
   );
 };
+
+/** Use instead of useContext(AuthContext) directly */
+export const useAuth = () => useContext(AuthContext);

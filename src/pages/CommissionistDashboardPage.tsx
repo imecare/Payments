@@ -1,17 +1,17 @@
-import { useContext, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Alert, Badge, Card, Col, Form, Row, Table } from 'react-bootstrap';
 import { FiCheckCircle, FiClock, FiDollarSign, FiUsers } from 'react-icons/fi';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorAlert from '../components/ErrorAlert';
 import StatCard from '../components/StatCard';
-import { AuthContext } from '../auth/AuthContext';
+import { useAuth } from '../auth/AuthContext';
 import { useSales } from '../features/sales/hooks/useSales';
 import { useCustomers } from '../features/customers/hooks/useCustomers';
 import { useCommissionistDashboardStats } from '../features/dashboard/hooks/useDashboard';
 import PaymentTable from '../features/payments/components/PaymentTable';
 
 export default function CommissionistDashboardPage() {
-  const { user } = useContext(AuthContext);
+  const { user } = useAuth();
   const sellerId = user?.sellerId ?? 0;
 
   const { data: sales = [], isLoading: loadingSales, error: salesError, refetch: refetchSales } = useSales('mine');

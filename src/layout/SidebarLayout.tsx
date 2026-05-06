@@ -1,6 +1,6 @@
-import { useContext, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, Link, Outlet, useLocation } from 'react-router-dom';
-import { AuthContext } from '../auth/AuthContext';
+import { useAuth } from '../auth/AuthContext';
 import { Container, Nav, Button, Badge } from 'react-bootstrap';
 import { 
   FiHome, FiShoppingCart, FiDollarSign, FiUsers, 
@@ -38,7 +38,7 @@ function NavItem({ to, icon, label, badge, isActive }: NavItemProps) {
 
 export default function SidebarLayout() {
   const [open, setOpen] = useState(false);
-  const { user, logout, isSuperAdmin, isCommissionist } = useContext(AuthContext);
+  const { user, logout, isSuperAdmin, isCommissionist } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 

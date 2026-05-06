@@ -3,7 +3,6 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { salesApi, type CreateSaleDTO } from '../api/salesApi';
-import type { Payment } from '@/shared/types';
 
 // ============================================
 // QUERY KEYS
@@ -95,26 +94,7 @@ export function useMarkCommissionPaid() {
 }
 
 // ============================================
-// COMPUTED HELPERS
+// COMPUTED HELPERS — re-exported from usePayments for backward compat
 // ============================================
-export interface SaleBalance {
-  totalPaid: number;
-  remainingBalance: number;
-  /** 0–100 */
-  progress: number;
-  isPaid: boolean;
-}
-
-/** paymentTypeId === 1 → cargo inicial (face value of sale), paymentTypeId === 2 → abono real */
-export const PAYMENT_TYPE_ABONO = 2;
-
-export function calculateSaleBalance(
-  totalAmount: number,
-  payments: Pick<Payment, 'amount' | 'paymentTypeId'>[]
-): SaleBalance {
-  const abonos = payments.filter((p) => p.paymentTypeId === PAYMENT_TYPE_ABONO);
-  const totalPaid = abonos.reduce((sum, p) => sum + p.amount, 0);
-  const remainingBalance = Math.max(0, totalAmount - totalPaid);
-  const progress = totalAmount > 0 ? Math.min(100, (totalPaid / totalAmount) * 100) : 0;
-  return { totalPaid, remainingBalance, progress, isPaid: remainingBalance <= 0 };
-}
+export type { SaleBalance } from '../../../features/payments/hooks/usePayments';
+export { calculateSaleBalance, PAYMENT_TYPE_ABONO } from '../../../features/payments/hooks/usePayments';
