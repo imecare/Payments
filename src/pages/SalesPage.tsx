@@ -9,10 +9,8 @@ import {
   useCreateSale,
   useUpdateSale,
   useMarkCommissionPaid,
-  calculateSaleBalance
 } from '../features/sales/hooks/useSales';
-import { usePaymentsBySale } from '../features/payments/hooks/usePayments';
-import type { Payment, Sale, CreateSaleDTO } from '../shared/types';
+import type { Sale, CreateSaleDTO } from '../shared/types';
 import { useCustomers } from '../features/customers/hooks/useCustomers';
 import { useSellers, useActiveSellers } from '../features/sellers/hooks/useSellers';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -20,6 +18,7 @@ import ErrorAlert from '../components/ErrorAlert';
 import ConfirmModal from '../components/ConfirmModal';
 import StatCard from '../components/StatCard';
 import { useAuth } from '../auth/AuthContext';
+import SaleDetailModal from '../features/sales/components/SaleDetailModal';
 
 const emptySale: CreateSaleDTO = { 
   customerId: 0,
@@ -29,179 +28,6 @@ const emptySale: CreateSaleDTO = {
   productDescription: '',
   commissionAmount: 0,
 };
-
-// Componente para mostrar detalles de una venta
-function SaleDetailModal({ 
-  sale, 
-  show, 
-  onHide,
-  onPayCommission,
-  isPayingCommission,
-  canPayCommission
-}: { 
-  sale: Sale | null; 
-  show: boolean; 
-  onHide: () => void;
-  onPayCommission: () => void;
-  isPayingCommission: boolean;
-  canPayCommission: boolean;
-}) {
-  const { data: payments = [], isLoading: loadingPayments } = usePaymentsBySale(sale?.id ?? 0);
-  
-  if (!sale) return null;
-  
-  const balance = calculateSaleBalance(sale.totalAmount, payments);
-  const profit = sale.totalAmount - (sale.costPrice ?? 0);
-  const netProfit = profit - sale.commissionAmount;
-  
-  return (
-    <Modal show={show} onHide={onHide} centered size="lg">
-      <Modal.Header closeButton>
-        <Modal.Title>
-          Detalle de Venta #{sale.id}
-        </Modal.Title>
-      </Modal.Header>
-      <Modal.Body>
-        <Row className="mb-4">
-          <Col md={4}>
-            <Card className="text-center h-100">
-              <Card.Body>
-                <h6 className="text-muted">Total Venta</h6>
-                <h3 className="text-primary">${sale.totalAmount.toLocaleString()}</h3>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col md={4}>
-            <Card className="text-center h-100">
-              <Card.Body>
-                <h6 className="text-muted">Pagado</h6>
-                <h3 className="text-success">${balance.totalPaid.toLocaleString()}</h3>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col md={4}>
-            <Card className="text-center h-100">
-              <Card.Body>
-                <h6 className="text-muted">Pendiente</h6>
-                <h3 className="text-danger">${balance.remainingBalance.toLocaleString()}</h3>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
-        
-        <div className="mb-4">
-          <div className="d-flex justify-content-between mb-2">
-            <span>Progreso de pago</span>
-            <span>{balance.progress.toFixed(1)}%</span>
-          </div>
-          <ProgressBar 
-            now={balance.progress} 
-            variant={balance.isPaid ? 'success' : 'primary'}
-            animated={!balance.isPaid}
-          />
-        </div>
-        
-        <Row className="mb-4">
-          <Col md={12} className="mb-3">
-            <h6>Descripcion de la venta</h6>
-            <p className="mb-0 text-muted">{sale.productDescription?.trim() || 'Sin descripcion registrada.'}</p>
-          </Col>
-          <Col md={6}>
-            <h6>Información Financiera</h6>
-            <Table size="sm" borderless>
-              <tbody>
-                <tr>
-                  <td className="text-muted">Costo:</td>
-                  <td>${(sale.costPrice ?? 0).toLocaleString()}</td>
-                </tr>
-                <tr>
-                  <td className="text-muted">Ganancia bruta:</td>
-                  <td>${profit.toLocaleString()}</td>
-                </tr>
-                <tr>
-                  <td className="text-muted">Comisión vendedor:</td>
-                  <td>${sale.commissionAmount.toLocaleString()}</td>
-                </tr>
-                <tr className="table-active">
-                  <td className="text-muted fw-bold">Ganancia neta:</td>
-                  <td className="fw-bold">${netProfit.toLocaleString()}</td>
-                </tr>
-              </tbody>
-            </Table>
-          </Col>
-          <Col md={6}>
-            <h6>Estado</h6>
-            <div className="mb-2">
-              <Badge bg={sale.isPaid ? 'success' : 'warning'} className="me-2">
-                {sale.isPaid ? 'Liquidada' : 'Pendiente de pago'}
-              </Badge>
-              <Badge bg={sale.isCommissionPaid ? 'success' : 'secondary'}>
-                Comisión: {sale.isCommissionPaid ? 'Pagada' : 'Pendiente'}
-              </Badge>
-            </div>
-            
-            {canPayCommission && sale.isPaid && !sale.isCommissionPaid && (
-              <Alert variant="info" className="mt-3">
-                <small>
-                  La venta está liquidada. Puedes pagar la comisión al vendedor.
-                </small>
-                <div className="mt-2">
-                  <Button 
-                    variant="success" 
-                    size="sm"
-                    onClick={onPayCommission}
-                    disabled={isPayingCommission}
-                  >
-                    {isPayingCommission ? 'Procesando...' : 'Marcar comisión como pagada'}
-                  </Button>
-                </div>
-              </Alert>
-            )}
-          </Col>
-        </Row>
-        
-        <h6>Historial de Abonos</h6>
-        {loadingPayments ? (
-          <LoadingSpinner message="Cargando abonos..." />
-        ) : payments.length === 0 ? (
-          <Alert variant="light">No hay abonos registrados</Alert>
-        ) : (
-          <Table size="sm" striped hover>
-            <thead>
-              <tr>
-                <th>Fecha</th>
-                <th>Monto</th>
-                <th>Método</th>
-                <th>Referencia</th>
-              </tr>
-            </thead>
-            <tbody>
-              {payments.map((payment: Payment) => (
-                <tr key={payment.id}>
-                  <td>{new Date(payment.date).toLocaleDateString('es-MX')}</td>
-                  <td className="text-success">${payment.amount.toLocaleString()}</td>
-                  <td>
-                    <Badge bg="light" text="dark">
-                      {payment.paymentMethod === 'Cash' && 'Efectivo'}
-                      {payment.paymentMethod === 'Card' && 'Tarjeta'}
-                      {payment.paymentMethod === 'Transfer' && 'Transferencia'}
-                    </Badge>
-                  </td>
-                  <td>{payment.reference || '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        )}
-      </Modal.Body>
-      <Modal.Footer>
-        <Button variant="secondary" onClick={onHide}>
-          Cerrar
-        </Button>
-      </Modal.Footer>
-    </Modal>
-  );
-}
 
 export default function SalesPage() {
   const { isSuperAdmin, isCommissionist, user } = useAuth();
@@ -233,11 +59,8 @@ export default function SalesPage() {
     const paidSales = sales.filter(s => s.isPaid);
     const pendingCommissions = sales.filter(s => s.isPaid && !s.isCommissionPaid);
     const totalCommissionsPending = pendingCommissions.reduce((sum, s) => sum + s.commissionAmount, 0);
-    // Sum only real abonos (paymentTypeId === 2) across all sales
-    const totalPaid = sales
-      .flatMap(s => s.payments ?? s.payment ?? [])
-      .filter(p => p.paymentTypeId === 2)
-      .reduce((sum, p) => sum + p.amount, 0);
+    // Use server-computed paidAmount (sum of paymentTypeId=2) per sale
+    const totalPaid = sales.reduce((sum, s) => sum + (s.paidAmount ?? 0), 0);
 
     return {
       totalSales,

@@ -1,25 +1,21 @@
 import { useState, useCallback, useMemo } from 'react';
 import { 
-  Container, Row, Col, Form, Button, Alert, Card, Table, 
-  Badge, InputGroup, ProgressBar, Modal 
+  Container, Row, Col, Form, Button, Alert, Card, Badge,
+  InputGroup, ProgressBar, Modal 
 } from 'react-bootstrap';
 import { 
   FiDollarSign, FiCreditCard, FiSearch, FiCheck, FiClock,
-  FiPlus, FiRefreshCw, FiEdit2, FiTrash2
+  FiPlus, FiRefreshCw
 } from 'react-icons/fi';
 import { useSales } from '../features/sales/hooks/useSales';
-import { 
-  useCreatePayment, 
-  useUpdatePayment,
-  useDeletePayment,
-  usePaymentsBySale,
-  PAYMENT_TYPE_ABONO,
-} from '../features/payments/hooks/usePayments';
+import { useCreatePayment } from '../features/payments/hooks/usePayments';
 import type { Sale } from '../shared/types';
-import type { CreatePaymentDTO, UpdatePaymentDTO, Payment, PaymentMethod } from '../features/payments/api/paymentsApi';
+import type { CreatePaymentDTO, PaymentMethod } from '../features/payments/api/paymentsApi';
 import { useCustomers } from '../features/customers/hooks/useCustomers';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorAlert from '../components/ErrorAlert';
+import PaymentHistory from '../features/payments/components/PaymentHistory';
+import PendingSaleCard from '../features/payments/components/PendingSaleCard';
 
 type PaymentMethodType = PaymentMethod;
 
@@ -28,239 +24,6 @@ const paymentMethods: { value: PaymentMethodType; label: string }[] = [
   { value: 'Card', label: 'Tarjeta' },
   { value: 'Transfer', label: 'Transferencia' },
 ];
-
-// Componente para mostrar historial de una venta seleccionada
-function PaymentHistory({ saleId }: { saleId: number }) {
-  const { data: payments = [], isLoading } = usePaymentsBySale(saleId);
-  const updateMutation = useUpdatePayment(saleId);
-  const deleteMutation = useDeletePayment(saleId);
-
-  // Edit state
-  const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
-  const [editForm, setEditForm] = useState<UpdatePaymentDTO>({ amount: 0, paymentMethod: 'Cash', reference: '' });
-
-  // Delete state
-  const [deletingPayment, setDeletingPayment] = useState<Payment | null>(null);
-  const [deleteReason, setDeleteReason] = useState('');
-
-  const abonos = payments.filter(p => p.paymentTypeId === PAYMENT_TYPE_ABONO);
-
-  const openEdit = (p: Payment) => {
-    setEditingPayment(p);
-    setEditForm({ amount: p.amount, paymentMethod: p.paymentMethod, reference: p.reference ?? '' });
-  };
-
-  const handleUpdate = async () => {
-    if (!editingPayment) return;
-    await updateMutation.mutateAsync({ id: editingPayment.id, dto: editForm });
-    setEditingPayment(null);
-  };
-
-  const handleDelete = async () => {
-    if (!deletingPayment) return;
-    await deleteMutation.mutateAsync({ paymentId: deletingPayment.id, reason: deleteReason || undefined });
-    setDeletingPayment(null);
-    setDeleteReason('');
-  };
-
-  if (isLoading) return <LoadingSpinner message="Cargando abonos..." />;
-  
-  if (abonos.length === 0) {
-    return (
-      <Alert variant="light" className="text-center">
-        <FiClock className="me-2" />
-        No hay abonos registrados para esta venta
-      </Alert>
-    );
-  }
-  
-  return (
-    <>
-      <Table size="sm" striped hover className="mt-3">
-        <thead>
-          <tr>
-            <th>Fecha</th>
-            <th className="text-end">Monto</th>
-            <th>Método</th>
-            <th>Referencia</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {abonos.map((payment) => (
-            <tr key={payment.id}>
-              <td>{new Date(payment.date).toLocaleDateString('es-MX')}</td>
-              <td className="text-end text-success fw-bold">
-                ${payment.amount.toLocaleString()}
-              </td>
-              <td>
-                <Badge bg="secondary">
-                  {payment.paymentMethod === 'Cash' && 'Efectivo'}
-                  {payment.paymentMethod === 'Card' && 'Tarjeta'}
-                  {payment.paymentMethod === 'Transfer' && 'Transferencia'}
-                </Badge>
-              </td>
-              <td className="text-muted">{payment.reference || '-'}</td>
-              <td className="text-end">
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="p-0 me-2 text-primary"
-                  title="Editar abono"
-                  onClick={() => openEdit(payment)}
-                >
-                  <FiEdit2 />
-                </Button>
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="p-0 text-danger"
-                  title="Eliminar abono"
-                  onClick={() => { setDeletingPayment(payment); setDeleteReason(''); }}
-                >
-                  <FiTrash2 />
-                </Button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </Table>
-
-      {/* Edit Modal */}
-      <Modal show={!!editingPayment} onHide={() => setEditingPayment(null)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>Editar Abono</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form.Group className="mb-3">
-            <Form.Label>Monto *</Form.Label>
-            <InputGroup>
-              <InputGroup.Text>$</InputGroup.Text>
-              <Form.Control
-                type="number"
-                min={0.01}
-                step={0.01}
-                value={editForm.amount || ''}
-                onChange={e => setEditForm({ ...editForm, amount: Number(e.target.value) })}
-              />
-            </InputGroup>
-          </Form.Group>
-          <Form.Group className="mb-3">
-            <Form.Label>Método de Pago</Form.Label>
-            <Form.Select
-              value={editForm.paymentMethod}
-              onChange={e => setEditForm({ ...editForm, paymentMethod: e.target.value as PaymentMethod })}
-            >
-              <option value="Cash">Efectivo</option>
-              <option value="Card">Tarjeta</option>
-              <option value="Transfer">Transferencia</option>
-            </Form.Select>
-          </Form.Group>
-          <Form.Group>
-            <Form.Label>Referencia</Form.Label>
-            <Form.Control
-              type="text"
-              value={editForm.reference ?? ''}
-              onChange={e => setEditForm({ ...editForm, reference: e.target.value })}
-              placeholder="Opcional"
-            />
-          </Form.Group>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setEditingPayment(null)}>Cancelar</Button>
-          <Button
-            variant="primary"
-            onClick={handleUpdate}
-            disabled={updateMutation.isPending || !editForm.amount}
-          >
-            {updateMutation.isPending ? 'Guardando...' : 'Guardar cambios'}
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
-      {/* Delete Confirm Modal */}
-      <Modal show={!!deletingPayment} onHide={() => setDeletingPayment(null)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>Eliminar Abono</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <p>¿Estás seguro de eliminar el abono de <strong>${deletingPayment?.amount.toLocaleString()}</strong>?</p>
-          <Form.Group>
-            <Form.Label>Motivo (opcional)</Form.Label>
-            <Form.Control
-              type="text"
-              value={deleteReason}
-              onChange={e => setDeleteReason(e.target.value)}
-              placeholder="Ej. Error de captura"
-            />
-          </Form.Group>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setDeletingPayment(null)}>Cancelar</Button>
-          <Button
-            variant="danger"
-            onClick={handleDelete}
-            disabled={deleteMutation.isPending}
-          >
-            {deleteMutation.isPending ? 'Eliminando...' : 'Eliminar'}
-          </Button>
-        </Modal.Footer>
-      </Modal>
-    </>
-  );
-}
-
-// Componente para tarjeta de venta pendiente
-function PendingSaleCard({ 
-  sale, 
-  customerName,
-  onSelect,
-  isSelected
-}: { 
-  sale: Sale;
-  customerName: string;
-  onSelect: () => void;
-  isSelected: boolean;
-}) {
-  // Use server-computed fields from DTO — eliminates N+1 per-card request
-  const paid = sale.paidAmount ?? 0;
-  const remaining = sale.remainingBalance ?? Math.max(0, sale.totalAmount - paid);
-  const progress = sale.paymentProgress ?? (sale.totalAmount > 0 ? Math.min(100, (paid / sale.totalAmount) * 100) : 0);
-  
-  return (
-    <Card 
-      className={`mb-3 cursor-pointer ${isSelected ? 'border-primary border-2' : ''}`}
-      onClick={onSelect}
-      style={{ cursor: 'pointer' }}
-    >
-      <Card.Body>
-        <div className="d-flex justify-content-between align-items-start mb-2">
-          <div>
-            <h6 className="mb-1">{customerName}</h6>
-            <small className="text-muted">Venta #{sale.id}</small>
-          </div>
-          <Badge bg={sale.isPaid ? 'success' : 'warning'} text={sale.isPaid ? undefined : 'dark'}>
-            {sale.isPaid ? 'Liquidada' : 'Pendiente'}
-          </Badge>
-        </div>
-        
-        <div className="d-flex justify-content-between mb-2">
-          <span>Total: <strong>${sale.totalAmount.toLocaleString()}</strong></span>
-          <span className="text-danger">Debe: <strong>${remaining.toLocaleString()}</strong></span>
-        </div>
-        
-        <ProgressBar 
-          now={progress} 
-          variant={sale.isPaid ? 'success' : 'primary'}
-          style={{ height: '8px' }}
-        />
-        <small className="text-muted d-block mt-1 text-end">
-          {progress.toFixed(0)}% pagado
-        </small>
-      </Card.Body>
-    </Card>
-  );
-}
 
 export default function PaymentsPage() {
   // Data fetching

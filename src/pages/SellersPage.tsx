@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Button, Table, Modal, Form, Row, Col, Badge, InputGroup } from 'react-bootstrap';
 import { FiSearch, FiPlus, FiEdit2, FiPhone, FiUser, FiToggleLeft, FiToggleRight } from 'react-icons/fi';
 import { 
@@ -8,30 +8,30 @@ import {
   useToggleSellerStatus
 } from '../features/sellers/hooks/useSellers';
 import type { Seller, CreateSellerDTO } from '../shared/types';
+import { useCrudForm } from '../shared/hooks/useCrudForm';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorAlert from '../components/ErrorAlert';
 
-const emptySeller: CreateSellerDTO = { 
-  name: '', 
-  lastName: '', 
-  phone: '' 
-};
+const emptySeller: CreateSellerDTO = { name: '', lastName: '', phone: '' };
+const mapSellerToForm = (s: Seller): CreateSellerDTO => ({
+  name: s.name,
+  lastName: s.lastName,
+  phone: s.phone,
+});
 
 export default function SellersPage() {
-  // Data fetching with React Query
   const { data: sellers = [], isLoading, error, refetch } = useSellers();
   const createMutation = useCreateSeller();
   const updateMutation = useUpdateSeller();
   const toggleStatusMutation = useToggleSellerStatus();
 
-  // UI State
-  const [showModal, setShowModal] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [formData, setFormData] = useState<CreateSellerDTO>(emptySeller);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const {
+    showModal, editingId, isEditing, formData, setFormData,
+    formErrors, setFormErrors, handleOpenModal, handleCloseModal,
+  } = useCrudForm<CreateSellerDTO, Seller>({ emptyForm: emptySeller, mapEntityToForm: mapSellerToForm });
 
-  // Filtered sellers based on search
+  const [searchTerm, setSearchTerm] = useState('');
+
   const filteredSellers = useMemo(() => {
     if (!searchTerm.trim()) return sellers;
     const term = searchTerm.toLowerCase();
@@ -43,60 +43,30 @@ export default function SellersPage() {
     );
   }, [sellers, searchTerm]);
 
-  // Handlers
-  const handleOpenModal = useCallback((seller?: Seller) => {
-    if (seller) {
-      setEditingId(seller.id);
-      setFormData({
-        name: seller.name,
-        lastName: seller.lastName,
-        phone: seller.phone,
-      });
-    } else {
-      setEditingId(null);
-      setFormData(emptySeller);
-    }
-    setFormErrors({});
-    setShowModal(true);
-  }, []);
-
-  const handleCloseModal = useCallback(() => {
-    setShowModal(false);
-    setEditingId(null);
-    setFormData(emptySeller);
-    setFormErrors({});
-  }, []);
-
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
-    
     if (!formData.name.trim()) {
       errors.name = 'El nombre es requerido';
     } else if (formData.name.trim().length < 2) {
       errors.name = 'El nombre debe tener al menos 2 caracteres';
     }
-    
     if (!formData.lastName.trim()) {
       errors.lastName = 'El apellido es requerido';
     } else if (formData.lastName.trim().length < 2) {
       errors.lastName = 'El apellido debe tener al menos 2 caracteres';
     }
-    
     if (!formData.phone.trim()) {
       errors.phone = 'El teléfono es requerido';
     } else if (formData.phone.trim().length < 10) {
       errors.phone = 'El teléfono debe tener al menos 10 dígitos';
     }
-    
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    
     if (!validateForm()) return;
-
     try {
       if (editingId) {
         await updateMutation.mutateAsync({ id: editingId, data: formData });
@@ -120,10 +90,7 @@ export default function SellersPage() {
 
   const isPending = createMutation.isPending || updateMutation.isPending;
 
-  // Render
-  if (isLoading) {
-    return <LoadingSpinner message="Cargando vendedores..." />;
-  }
+  if (isLoading) return <LoadingSpinner message="Cargando vendedores..." />;
 
   if (error) {
     return <ErrorAlert error={error} title="Error al cargar vendedores" onRetry={refetch} />;
@@ -245,7 +212,7 @@ export default function SellersPage() {
       <Modal show={showModal} onHide={handleCloseModal} centered>
         <Modal.Header closeButton>
           <Modal.Title>
-            {editingId ? 'Editar Vendedor' : 'Agregar Vendedor'}
+            {isEditing ? 'Editar Vendedor' : 'Agregar Vendedor'}
           </Modal.Title>
         </Modal.Header>
         <Form onSubmit={handleSave} noValidate>

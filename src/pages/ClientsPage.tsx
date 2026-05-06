@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Button, Table, Modal, Form, Row, Col, Badge, InputGroup } from 'react-bootstrap';
 import { FiSearch, FiPlus, FiEdit2, FiPhone, FiUsers } from 'react-icons/fi';
 import { 
@@ -8,32 +8,32 @@ import {
 } from '../features/customers/hooks/useCustomers';
 import type { Customer, CreateCustomerDTO } from '../shared/types';
 import { useSellers } from '../features/sellers/hooks/useSellers';
+import { useCrudForm } from '../shared/hooks/useCrudForm';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorAlert from '../components/ErrorAlert';
 
-const emptyCustomer: CreateCustomerDTO = { 
-  name: '', 
-  lastName: '', 
-  rfc: '',
-  phone: '',
-  sellerId: 0
-};
+const emptyCustomer: CreateCustomerDTO = { name: '', lastName: '', rfc: '', phone: '', sellerId: 0 };
+const mapCustomerToForm = (c: Customer): CreateCustomerDTO => ({
+  name: c.name,
+  lastName: c.lastName,
+  rfc: c.rfc,
+  phone: c.phone,
+  sellerId: c.sellerId,
+});
 
 export default function ClientsPage() {
-  // Data fetching with React Query
   const { data: customers = [], isLoading, error, refetch } = useCustomers();
   const { data: sellers = [], isLoading: sellersLoading } = useSellers();
   const createMutation = useCreateCustomer();
   const updateMutation = useUpdateCustomer();
 
-  // UI State
-  const [showModal, setShowModal] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [formData, setFormData] = useState<CreateCustomerDTO>(emptyCustomer);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const {
+    showModal, editingId, isEditing, formData, setFormData,
+    formErrors, setFormErrors, handleOpenModal, handleCloseModal,
+  } = useCrudForm<CreateCustomerDTO, Customer>({ emptyForm: emptyCustomer, mapEntityToForm: mapCustomerToForm });
 
-  // Filtered customers based on search
+  const [searchTerm, setSearchTerm] = useState('');
+
   const filteredCustomers = useMemo(() => {
     if (!searchTerm.trim()) return customers;
     const term = searchTerm.toLowerCase();
@@ -46,68 +46,28 @@ export default function ClientsPage() {
     );
   }, [customers, searchTerm]);
 
-  // Get seller name by ID
   const getSellerName = useCallback((sellerId: number) => {
     const seller = sellers.find(s => s.id === sellerId);
     return seller ? `${seller.name} ${seller.lastName}` : 'Sin asignar';
   }, [sellers]);
 
-  // Handlers
-  const handleOpenModal = useCallback((customer?: Customer) => {
-    if (customer) {
-      setEditingId(customer.id);
-      setFormData({
-        name: customer.name,
-        lastName: customer.lastName,
-        rfc: customer.rfc,
-        phone: customer.phone,
-        sellerId: customer.sellerId,
-      });
-    } else {
-      setEditingId(null);
-      setFormData(emptyCustomer);
-    }
-    setFormErrors({});
-    setShowModal(true);
-  }, []);
-
-  const handleCloseModal = useCallback(() => {
-    setShowModal(false);
-    setEditingId(null);
-    setFormData(emptyCustomer);
-    setFormErrors({});
-  }, []);
-
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
-    
-    if (!formData.name.trim()) {
-      errors.name = 'El nombre es requerido';
-    }
-    
-    if (!formData.lastName.trim()) {
-      errors.lastName = 'El apellido es requerido';
-    }
-    
+    if (!formData.name.trim()) errors.name = 'El nombre es requerido';
+    if (!formData.lastName.trim()) errors.lastName = 'El apellido es requerido';
     if (!formData.phone.trim()) {
       errors.phone = 'El teléfono es requerido';
     } else if (formData.phone.trim().length < 10) {
       errors.phone = 'El teléfono debe tener al menos 10 dígitos';
     }
-    
-    if (formData.sellerId <= 0) {
-      errors.sellerId = 'Debe seleccionar un vendedor';
-    }
-    
+    if (formData.sellerId <= 0) errors.sellerId = 'Debe seleccionar un vendedor';
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    
     if (!validateForm()) return;
-
     try {
       if (editingId) {
         await updateMutation.mutateAsync({ id: editingId, data: formData });
@@ -122,10 +82,7 @@ export default function ClientsPage() {
 
   const isPending = createMutation.isPending || updateMutation.isPending;
 
-  // Render
-  if (isLoading) {
-    return <LoadingSpinner message="Cargando clientes..." />;
-  }
+  if (isLoading) return <LoadingSpinner message="Cargando clientes..." />;
 
   if (error) {
     return <ErrorAlert error={error} title="Error al cargar clientes" onRetry={refetch} />;
@@ -233,7 +190,7 @@ export default function ClientsPage() {
       <Modal show={showModal} onHide={handleCloseModal} centered size="lg">
         <Modal.Header closeButton>
           <Modal.Title>
-            {editingId ? 'Editar Cliente' : 'Agregar Cliente'}
+            {isEditing ? 'Editar Cliente' : 'Agregar Cliente'}
           </Modal.Title>
         </Modal.Header>
         <Form onSubmit={handleSave} noValidate>
