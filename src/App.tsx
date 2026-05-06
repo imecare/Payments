@@ -39,8 +39,8 @@ export default function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <BrowserRouter>
+        <BrowserRouter>
+          <AuthProvider>
             <Suspense fallback={<LoadingSpinner message="Cargando..." fullPage />}>
               <Routes>
                 <Route path="/" element={<Navigate to="/login" replace />} />
@@ -114,8 +114,8 @@ export default function App() {
                 </Route>
               </Routes>
             </Suspense>
-          </BrowserRouter>
-        </AuthProvider>
+          </AuthProvider>
+        </BrowserRouter>
       </QueryClientProvider>
     </ErrorBoundary>
   );
