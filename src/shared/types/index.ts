@@ -87,6 +87,12 @@ export interface Sale {
   payments?: Payment[];
   /** @deprecated use payments */
   payment?: Payment[];
+  /** Server-computed: sum of abonos (paymentTypeId=2) */
+  paidAmount?: number;
+  /** Server-computed: Max(0, totalAmount - paidAmount) */
+  remainingBalance?: number;
+  /** Server-computed: Min(100, paidAmount / totalAmount * 100) */
+  paymentProgress?: number;
 }
 
 export interface CreateSaleDTO {
@@ -109,6 +115,8 @@ export interface DashboardStats {
   paidCommissions: number;
   activeCustomers: number;
   activeSellers: number;
+  /** Server-computed: sum of (totalAmount - costPrice) for paid sales */
+  totalProfit?: number;
 }
 
 export interface CommissionistStats {

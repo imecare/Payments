@@ -58,6 +58,10 @@ export const dashboardApi = {
       .filter((s) => s.isCommissionPaid)
       .reduce((acc, s) => acc + s.commissionAmount, 0);
 
+    const totalProfit = sales
+      .filter((s) => s.isPaid)
+      .reduce((acc, s) => acc + (s.totalAmount - (s.costPrice ?? 0)), 0);
+
     return {
       totalSales,
       totalCollected,
@@ -66,6 +70,7 @@ export const dashboardApi = {
       paidCommissions,
       activeCustomers: customers.length,
       activeSellers: sellers.length,
+      totalProfit,
     };
   },
 };

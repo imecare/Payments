@@ -215,7 +215,7 @@ function Dashboard() {
         <Col sm={6} lg={3}>
           <StatCard
             title="Ganancia Total"
-            value={`$${totalProfit.toLocaleString()}`}
+            value={`$${(stats?.totalProfit ?? totalProfit).toLocaleString()}`}
             icon={<FiTrendingUp />}
             variant="success"
           />

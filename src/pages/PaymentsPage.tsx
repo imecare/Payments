@@ -13,7 +13,6 @@ import {
   useUpdatePayment,
   useDeletePayment,
   usePaymentsBySale,
-  calculateSaleBalance,
   PAYMENT_TYPE_ABONO,
 } from '../features/payments/hooks/usePayments';
 import type { Sale } from '../shared/types';
@@ -223,8 +222,10 @@ function PendingSaleCard({
   onSelect: () => void;
   isSelected: boolean;
 }) {
-  const { data: payments = [] } = usePaymentsBySale(sale.id);
-  const balance = calculateSaleBalance(sale.totalAmount, payments);
+  // Use server-computed fields from DTO — eliminates N+1 per-card request
+  const paid = sale.paidAmount ?? 0;
+  const remaining = sale.remainingBalance ?? Math.max(0, sale.totalAmount - paid);
+  const progress = sale.paymentProgress ?? (sale.totalAmount > 0 ? Math.min(100, (paid / sale.totalAmount) * 100) : 0);
   
   return (
     <Card 
@@ -245,16 +246,16 @@ function PendingSaleCard({
         
         <div className="d-flex justify-content-between mb-2">
           <span>Total: <strong>${sale.totalAmount.toLocaleString()}</strong></span>
-          <span className="text-danger">Debe: <strong>${balance.remainingBalance.toLocaleString()}</strong></span>
+          <span className="text-danger">Debe: <strong>${remaining.toLocaleString()}</strong></span>
         </div>
         
         <ProgressBar 
-          now={balance.progress} 
-          variant={balance.isPaid ? 'success' : 'primary'}
+          now={progress} 
+          variant={sale.isPaid ? 'success' : 'primary'}
           style={{ height: '8px' }}
         />
         <small className="text-muted d-block mt-1 text-end">
-          {balance.progress.toFixed(0)}% pagado
+          {progress.toFixed(0)}% pagado
         </small>
       </Card.Body>
     </Card>
@@ -286,14 +287,14 @@ export default function PaymentsPage() {
     sales.find(s => s.id === selectedSaleId) || null
   , [sales, selectedSaleId]);
   
-  // Get payments for selected sale
-  const { data: selectedSalePayments = [] } = usePaymentsBySale(selectedSaleId ?? 0);
-  
-  // Calculate balance for selected sale
+  // Use server-computed balance fields from DTO — no extra request needed
   const selectedSaleBalance = useMemo(() => {
     if (!selectedSale) return null;
-    return calculateSaleBalance(selectedSale.totalAmount, selectedSalePayments);
-  }, [selectedSale, selectedSalePayments]);
+    const paid = selectedSale.paidAmount ?? 0;
+    const remaining = selectedSale.remainingBalance ?? Math.max(0, selectedSale.totalAmount - paid);
+    const progress = selectedSale.paymentProgress ?? (selectedSale.totalAmount > 0 ? Math.min(100, (paid / selectedSale.totalAmount) * 100) : 0);
+    return { totalPaid: paid, remainingBalance: remaining, progress, isPaid: selectedSale.isPaid };
+  }, [selectedSale]);
   
   // Filter pending sales
   const pendingSales = useMemo(() => {
