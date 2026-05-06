@@ -2,7 +2,7 @@ import React, { useState, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from './AuthContext';
 import axiosClient from '../shared/api/axiosClient';
-import { Form, Button, Container, Row, Col, Alert } from 'react-bootstrap';
+import { Form, Button, Container, Row, Col, Alert, Spinner } from 'react-bootstrap';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 
 
@@ -10,18 +10,70 @@ export default function LoginPage() {
   const [credentials, setCredentials] = useState({ email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
 
+  type LoginResponse = {
+    token: string;
+    role?: string;
+    sellerId?: number | null;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+  };
+
+  const getLandingPath = (response: LoginResponse): string => {
+    if (response.role) {
+      const normalizedRole = response.role.toLowerCase();
+      if (normalizedRole === 'commissionist' || normalizedRole === 'seller' || normalizedRole === 'vendedor') {
+        return '/mi-cartera';
+      }
+      return '/dashboard';
+    }
+
+    const token = response.token;
+    try {
+      const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+      const normalized = payload + '='.repeat((4 - (payload.length % 4)) % 4);
+      const parsed = JSON.parse(atob(normalized)) as Record<string, unknown>;
+      const roleRaw =
+        parsed.role ??
+        parsed.roles ??
+        parsed.userRole ??
+        parsed['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'];
+      const role = Array.isArray(roleRaw) ? String(roleRaw[0] ?? '') : String(roleRaw ?? '');
+      const normalizedRole = role.toLowerCase();
+      if (
+        normalizedRole.includes('commission') ||
+        normalizedRole.includes('seller') ||
+        normalizedRole.includes('vendedor')
+      ) {
+        return '/mi-cartera';
+      }
+      return '/dashboard';
+    } catch {
+      return '/dashboard';
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
+    setError(null);
     try {
-      const { data } = await axiosClient.post<{ token: string }>('/api/Auth/login', credentials);
-      login(data.token);
-      navigate('/dashboard');
+      const { data } = await axiosClient.post<LoginResponse>('/api/Auth/login', credentials);
+      login({
+        token: data.token,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+      });
+      navigate(getLandingPath(data));
     } catch (e: any) {
       console.error(e);
       setError('Credenciales inválidas: ' + (e.response?.data?.message || e.message || e.toString()));
+      setIsLoading(false);
     }
   };
 
@@ -68,7 +120,14 @@ export default function LoginPage() {
                 </span>
               </div>
             </Form.Group>
-            <Button type="submit" variant="primary" className="w-100">Entrar</Button>
+            <Button type="submit" variant="primary" className="w-100" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Spinner as="span" animation="border" size="sm" className="me-2" />
+                  Entrando...
+                </>
+              ) : 'Entrar'}
+            </Button>
           </Form>
           <div className="text-center mt-3">
             <small className="text-muted">¿Eres cliente?</small>{' '}

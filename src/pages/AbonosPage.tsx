@@ -64,7 +64,8 @@ export default function AbonosPage() {
     const paid         = sales.filter((s) => s.isPaid).length;
     const pending      = sales.filter((s) => !s.isPaid).length;
     const collected    = sales
-      .flatMap((s) => s.payment ?? [])
+      .flatMap((s) => s.payments ?? s.payment ?? [])
+      .filter((p) => p.paymentTypeId === 2)
       .reduce((acc, p) => acc + p.amount, 0);
 
     return { total, paid, pending, collected };

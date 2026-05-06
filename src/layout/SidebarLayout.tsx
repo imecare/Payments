@@ -38,7 +38,7 @@ function NavItem({ to, icon, label, badge, isActive }: NavItemProps) {
 
 export default function SidebarLayout() {
   const [open, setOpen] = useState(false);
-  const { logout } = useContext(AuthContext);
+  const { user, logout, isSuperAdmin, isCommissionist } = useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -50,12 +50,17 @@ export default function SidebarLayout() {
   const isActive = (path: string) => location.pathname === path;
 
   const navItems = [
-    { to: '/dashboard', icon: <FiHome size={18} />, label: 'Dashboard' },
+    ...(isSuperAdmin ? [{ to: '/dashboard', icon: <FiHome size={18} />, label: 'Dashboard' }] : []),
+    ...(isCommissionist
+      ? [{ to: '/mi-cartera', icon: <FiHome size={18} />, label: 'Mi Cartera' }]
+      : []),
     { to: '/sales', icon: <FiShoppingCart size={18} />, label: 'Ventas' },
-    { to: '/abonos', icon: <FiCreditCard size={18} />, label: 'Abonos' },
-    { to: '/payments', icon: <FiDollarSign size={18} />, label: 'Registrar Abono' },
-    { to: '/clients', icon: <FiUsers size={18} />, label: 'Clientes' },
-    { to: '/sellers', icon: <FiUserCheck size={18} />, label: 'Vendedores' },
+    ...(isSuperAdmin ? [{ to: '/abonos', icon: <FiCreditCard size={18} />, label: 'Abonos' }] : []),
+    ...(isSuperAdmin
+      ? [{ to: '/payments', icon: <FiDollarSign size={18} />, label: 'Registrar Abono' }]
+      : []),
+    ...(isSuperAdmin ? [{ to: '/clients', icon: <FiUsers size={18} />, label: 'Clientes' }] : []),
+    ...(isSuperAdmin ? [{ to: '/sellers', icon: <FiUserCheck size={18} />, label: 'Vendedores' }] : []),
   ];
 
   return (
@@ -96,6 +101,12 @@ export default function SidebarLayout() {
 
         {/* Footer */}
         <div className="p-3 border-top border-secondary">
+          <div className="mb-3 px-2">
+            <div className="small text-white fw-semibold">{user?.displayName || user?.email || 'Usuario'}</div>
+            <div className="small text-muted">
+              {isSuperAdmin ? 'SuperAdmin' : isCommissionist ? 'Commissionist' : 'Sin rol'}
+            </div>
+          </div>
           <Nav.Item>
             <Nav.Link 
               as={Link} 

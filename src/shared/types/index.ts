@@ -12,6 +12,7 @@ export interface Seller {
   lastName: string;
   phone: string;
   date: string;
+  statusId: number; // 1 = Active, 0 = Inactive
   customers?: Customer[];
 }
 
@@ -45,7 +46,7 @@ export interface CreateCustomerDTO {
 // ============================================
 // PAYMENTS  (mirror of features/payments/api/paymentsApi.ts)
 // ============================================
-export type PaymentMethod = 'Cash' | 'Card' | 'Transfer';
+export type PaymentMethod = "Cash" | "Card" | "Transfer";
 
 export interface Payment {
   id: number;
@@ -70,14 +71,21 @@ export interface CreatePaymentDTO {
 export interface Sale {
   id: number;
   customerId: number;
+  customerName?: string;
   sellerId: number | null;
+  sellerName?: string;
   totalAmount: number;
   costPrice: number;
+  productDescription?: string;
   commissionAmount: number;
   isCommissionPaid: boolean;
   isPaid: boolean;
   date: string;
+  commissionPaidAt?: string | null;
   customer?: Customer;
+  seller?: Seller;
+  payments?: Payment[];
+  /** @deprecated use payments */
   payment?: Payment[];
 }
 
@@ -86,6 +94,7 @@ export interface CreateSaleDTO {
   sellerId?: number;
   totalAmount: number;
   costPrice: number;
+  productDescription: string;
   commissionAmount: number;
 }
 
@@ -100,4 +109,14 @@ export interface DashboardStats {
   paidCommissions: number;
   activeCustomers: number;
   activeSellers: number;
+}
+
+export interface CommissionistStats {
+  totalCustomers: number;
+  totalSales: number;
+  paidSales: number;
+  pendingCommissionsAmount: number;
+  paidCommissionsAmount: number;
+  pendingCommissionsCount: number;
+  paidCommissionsCount: number;
 }

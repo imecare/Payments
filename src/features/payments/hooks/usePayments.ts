@@ -3,7 +3,7 @@
  * Manages all "abonos" state: queries, mutations, and cache invalidation.
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { paymentsApi, type CreatePaymentDTO } from '../api/paymentsApi';
+import { paymentsApi, type CreatePaymentDTO, type UpdatePaymentDTO } from '../api/paymentsApi';
 
 // ============================================
 // QUERY KEYS
@@ -55,12 +55,27 @@ export function useCreatePayment() {
   });
 }
 
+/** Update an existing abono and refresh caches */
+export function useUpdatePayment(saleId: number) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, dto }: { id: number; dto: UpdatePaymentDTO }) =>
+      paymentsApi.update(id, dto),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: paymentKeys.bySale(saleId) });
+      queryClient.invalidateQueries({ queryKey: ['sales'] });
+    },
+  });
+}
+
 /** Delete a payment and refresh caches */
 export function useDeletePayment(saleId: number) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (paymentId: number) => paymentsApi.delete(paymentId),
+    mutationFn: ({ paymentId, reason }: { paymentId: number; reason?: string }) =>
+      paymentsApi.delete(paymentId, reason),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: paymentKeys.bySale(saleId) });
       queryClient.invalidateQueries({ queryKey: ['sales'] });
@@ -79,9 +94,13 @@ export interface SaleBalance {
   isPaid: boolean;
 }
 
-/** Calculate balance from a sale's total and its payments */
-export function calculateSaleBalance(totalAmount: number, payments: { amount: number }[]): SaleBalance {
-  const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+/** paymentTypeId === 1 → cargo inicial, paymentTypeId === 2 → abono real */
+export const PAYMENT_TYPE_ABONO = 2;
+
+/** Calculate balance counting only real abonos (paymentTypeId === 2) */
+export function calculateSaleBalance(totalAmount: number, payments: { amount: number; paymentTypeId: number }[]): SaleBalance {
+  const abonos = payments.filter((p) => p.paymentTypeId === PAYMENT_TYPE_ABONO);
+  const totalPaid = abonos.reduce((sum, p) => sum + p.amount, 0);
   const remainingBalance = Math.max(0, totalAmount - totalPaid);
   const progress = totalAmount > 0 ? Math.min(100, (totalPaid / totalAmount) * 100) : 0;
 

@@ -10,7 +10,7 @@ import type { Payment } from '@/shared/types';
 // ============================================
 export const saleKeys = {
   all: ['sales'] as const,
-  lists: () => [...saleKeys.all, 'list'] as const,
+  lists: (scope: 'all' | 'mine' = 'all') => [...saleKeys.all, 'list', scope] as const,
   pending: () => [...saleKeys.all, 'pending'] as const,
   pendingByCustomer: (customerId: number) => [...saleKeys.pending(), customerId] as const,
   details: () => [...saleKeys.all, 'detail'] as const,
@@ -22,10 +22,10 @@ export const saleKeys = {
 // QUERIES
 // ============================================
 
-export function useSales() {
+export function useSales(scope: 'all' | 'mine' = 'all') {
   return useQuery({
-    queryKey: saleKeys.lists(),
-    queryFn: salesApi.getAll,
+    queryKey: saleKeys.lists(scope),
+    queryFn: scope === 'mine' ? salesApi.getMine : salesApi.getAll,
     staleTime: 2 * 60 * 1000,
   });
 }
@@ -64,8 +64,19 @@ export function useCreateSale() {
   return useMutation({
     mutationFn: (data: CreateSaleDTO) => salesApi.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: saleKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: saleKeys.all });
       queryClient.invalidateQueries({ queryKey: ['customers'] });
+    },
+  });
+}
+
+export function useUpdateSale() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: CreateSaleDTO }) =>
+      salesApi.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: saleKeys.all });
     },
   });
 }
@@ -73,9 +84,10 @@ export function useCreateSale() {
 export function useMarkCommissionPaid() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (saleId: number) => salesApi.markCommissionPaid(saleId),
-    onSuccess: (_, saleId) => {
-      queryClient.invalidateQueries({ queryKey: saleKeys.lists() });
+    mutationFn: ({ saleId, paid = true, note }: { saleId: number; paid?: boolean; note?: string }) =>
+      salesApi.markCommissionPaid(saleId, paid, note),
+    onSuccess: (_, { saleId }) => {
+      queryClient.invalidateQueries({ queryKey: saleKeys.all });
       queryClient.invalidateQueries({ queryKey: saleKeys.detail(saleId) });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
@@ -93,11 +105,15 @@ export interface SaleBalance {
   isPaid: boolean;
 }
 
+/** paymentTypeId === 1 → cargo inicial (face value of sale), paymentTypeId === 2 → abono real */
+export const PAYMENT_TYPE_ABONO = 2;
+
 export function calculateSaleBalance(
   totalAmount: number,
-  payments: Pick<Payment, 'amount'>[]
+  payments: Pick<Payment, 'amount' | 'paymentTypeId'>[]
 ): SaleBalance {
-  const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+  const abonos = payments.filter((p) => p.paymentTypeId === PAYMENT_TYPE_ABONO);
+  const totalPaid = abonos.reduce((sum, p) => sum + p.amount, 0);
   const remainingBalance = Math.max(0, totalAmount - totalPaid);
   const progress = totalAmount > 0 ? Math.min(100, (totalPaid / totalAmount) * 100) : 0;
   return { totalPaid, remainingBalance, progress, isPaid: remainingBalance <= 0 };

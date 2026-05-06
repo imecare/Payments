@@ -28,6 +28,12 @@ export interface CreatePaymentDTO {
   reference?: string;
 }
 
+export interface UpdatePaymentDTO {
+  amount: number;
+  paymentMethod: PaymentMethod;
+  reference?: string;
+}
+
 // ============================================
 // STRIPE TYPES  (extend when integrating)
 // ============================================
@@ -66,9 +72,16 @@ export const paymentsApi = {
     return data;
   },
 
-  /** Delete a payment record */
-  delete: async (id: number): Promise<void> => {
-    await apiClient.delete(`/payment/PayPayments/${id}`);
+  /** Update an existing abono */
+  update: async (id: number, dto: UpdatePaymentDTO): Promise<Payment> => {
+    const { data } = await apiClient.put<Payment>(`/payment/PayPayments/${id}`, dto);
+    return data;
+  },
+
+  /** Delete a payment record with optional reason */
+  delete: async (id: number, reason?: string): Promise<void> => {
+    const params = reason ? `?reason=${encodeURIComponent(reason)}` : '';
+    await apiClient.delete(`/payment/PayPayments/${id}${params}`);
   },
 
   // ------------------------------------------

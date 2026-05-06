@@ -1,6 +1,6 @@
 import { Table, Badge, Spinner, Alert, ProgressBar } from 'react-bootstrap';
 import { FiClock } from 'react-icons/fi';
-import { usePaymentsBySale, calculateSaleBalance } from '../hooks/usePayments';
+import { usePaymentsBySale, calculateSaleBalance, PAYMENT_TYPE_ABONO } from '../hooks/usePayments';
 
 interface PaymentTableProps {
   saleId: number;
@@ -33,20 +33,29 @@ export default function PaymentTable({ saleId, totalAmount }: PaymentTableProps)
     );
   }
 
-  if (payments.length === 0) {
+  const abonos = payments.filter((p) => p.paymentTypeId === PAYMENT_TYPE_ABONO);
+  const balance = calculateSaleBalance(totalAmount, payments);
+
+  if (abonos.length === 0) {
     return (
-      <div className="d-flex align-items-center gap-2 py-3 text-muted">
-        <FiClock />
-        <span>Sin abonos registrados.</span>
-      </div>
+      <>
+        <div className="mb-3">
+          <div className="d-flex justify-content-between small text-muted mb-1">
+            <span>Pagado: <strong className="text-success">$0</strong> / ${totalAmount.toLocaleString()}</span>
+            <span>Pendiente: <strong className="text-danger">${totalAmount.toLocaleString()}</strong></span>
+          </div>
+          <ProgressBar now={0} style={{ height: '10px' }} />
+        </div>
+        <div className="d-flex align-items-center gap-2 py-3 text-muted">
+          <FiClock />
+          <span>Sin abonos registrados.</span>
+        </div>
+      </>
     );
   }
 
-  const balance = calculateSaleBalance(totalAmount, payments);
-
   return (
     <>
-      {/* Balance summary */}
       <div className="mb-3">
         <div className="d-flex justify-content-between small text-muted mb-1">
           <span>
@@ -70,7 +79,6 @@ export default function PaymentTable({ saleId, totalAmount }: PaymentTableProps)
         />
       </div>
 
-      {/* Payments table */}
       <Table size="sm" hover responsive className="mb-0">
         <thead className="table-light">
           <tr>
@@ -82,13 +90,13 @@ export default function PaymentTable({ saleId, totalAmount }: PaymentTableProps)
           </tr>
         </thead>
         <tbody>
-          {payments.map((p, idx) => {
+          {abonos.map((p, idx) => {
             const method = METHOD_LABELS[p.paymentMethod] ?? { label: p.paymentMethod, bg: 'secondary' };
             return (
               <tr key={p.id}>
                 <td className="text-muted">{idx + 1}</td>
                 <td>{new Date(p.date).toLocaleDateString('es-MX')}</td>
-                <td className="fw-semibold">${p.amount.toLocaleString()}</td>
+                <td className="fw-semibold text-success">${p.amount.toLocaleString()}</td>
                 <td>
                   <Badge bg={method.bg}>{method.label}</Badge>
                 </td>

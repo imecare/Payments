@@ -1,16 +1,15 @@
 import { useState, useCallback, useMemo } from 'react';
 import { Button, Table, Modal, Form, Row, Col, Badge, InputGroup } from 'react-bootstrap';
-import { FiSearch, FiPlus, FiEdit2, FiTrash2, FiPhone, FiUser } from 'react-icons/fi';
+import { FiSearch, FiPlus, FiEdit2, FiPhone, FiUser, FiToggleLeft, FiToggleRight } from 'react-icons/fi';
 import { 
   useSellers, 
   useCreateSeller, 
   useUpdateSeller, 
-  useDeleteSeller
+  useToggleSellerStatus
 } from '../features/sellers/hooks/useSellers';
 import type { Seller, CreateSellerDTO } from '../shared/types';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorAlert from '../components/ErrorAlert';
-import ConfirmModal from '../components/ConfirmModal';
 
 const emptySeller: CreateSellerDTO = { 
   name: '', 
@@ -23,11 +22,10 @@ export default function SellersPage() {
   const { data: sellers = [], isLoading, error, refetch } = useSellers();
   const createMutation = useCreateSeller();
   const updateMutation = useUpdateSeller();
-  const deleteMutation = useDeleteSeller();
+  const toggleStatusMutation = useToggleSellerStatus();
 
   // UI State
   const [showModal, setShowModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState<CreateSellerDTO>(emptySeller);
   const [searchTerm, setSearchTerm] = useState('');
@@ -111,21 +109,13 @@ export default function SellersPage() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!editingId) return;
-    
+  const handleToggleStatus = async (seller: Seller) => {
+    const newStatus = seller.statusId === 1 ? 0 : 1;
     try {
-      await deleteMutation.mutateAsync(editingId);
-      setShowDeleteModal(false);
-      setEditingId(null);
+      await toggleStatusMutation.mutateAsync({ id: seller.id, statusId: newStatus });
     } catch (err) {
-      console.error('Error deleting seller:', err);
+      console.error('Error toggling seller status:', err);
     }
-  };
-
-  const openDeleteModal = (seller: Seller) => {
-    setEditingId(seller.id);
-    setShowDeleteModal(true);
   };
 
   const isPending = createMutation.isPending || updateMutation.isPending;
@@ -189,14 +179,15 @@ export default function SellersPage() {
               <th>ID</th>
               <th>Nombre Completo</th>
               <th>Teléfono</th>
+              <th>Estado</th>
               <th>Fecha de Registro</th>
-              <th style={{ width: '150px' }}>Acciones</th>
+              <th style={{ width: '200px' }}>Acciones</th>
             </tr>
           </thead>
           <tbody>
             {filteredSellers.length === 0 ? (
               <tr>
-                <td colSpan={5} className="text-center py-4 text-muted">
+                <td colSpan={6} className="text-center py-4 text-muted">
                   {searchTerm ? 'No se encontraron vendedores' : 'No hay vendedores registrados'}
                 </td>
               </tr>
@@ -214,9 +205,25 @@ export default function SellersPage() {
                     {seller.phone}
                   </td>
                   <td>
+                    <Badge bg={seller.statusId === 1 ? 'success' : 'secondary'}>
+                      {seller.statusId === 1 ? 'Activo' : 'Inactivo'}
+                    </Badge>
+                  </td>
+                  <td>
                     {new Date(seller.date).toLocaleDateString('es-MX')}
                   </td>
                   <td>
+                    <Button 
+                      size="sm" 
+                      variant={seller.statusId === 1 ? 'outline-danger' : 'outline-success'}
+                      className="me-2"
+                      onClick={() => handleToggleStatus(seller)}
+                      disabled={toggleStatusMutation.isPending}
+                      aria-label={seller.statusId === 1 ? 'Desactivar' : 'Activar'}
+                      title={seller.statusId === 1 ? 'Desactivar vendedor' : 'Activar vendedor'}
+                    >
+                      {seller.statusId === 1 ? <FiToggleRight /> : <FiToggleLeft />}
+                    </Button>
                     <Button 
                       size="sm" 
                       variant="outline-primary" 
@@ -225,14 +232,6 @@ export default function SellersPage() {
                       aria-label={`Editar ${seller.name}`}
                     >
                       <FiEdit2 />
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="outline-danger"
-                      onClick={() => openDeleteModal(seller)}
-                      aria-label={`Eliminar ${seller.name}`}
-                    >
-                      <FiTrash2 />
                     </Button>
                   </td>
                 </tr>
@@ -312,27 +311,14 @@ export default function SellersPage() {
         </Form>
       </Modal>
 
-      {/* Delete Confirmation Modal */}
-      <ConfirmModal
-        show={showDeleteModal}
-        onHide={() => setShowDeleteModal(false)}
-        onConfirm={handleDelete}
-        title="Eliminar Vendedor"
-        message="¿Estás seguro de que deseas eliminar este vendedor? Esta acción no se puede deshacer."
-        confirmText="Eliminar"
-        variant="danger"
-        isLoading={deleteMutation.isPending}
-      />
-
-      {/* Mutation Error Alerts */}
+      {toggleStatusMutation.isError && (
+        <ErrorAlert error={toggleStatusMutation.error} title="Error al cambiar estado" />
+      )}
       {createMutation.isError && (
         <ErrorAlert error={createMutation.error} title="Error al crear vendedor" />
       )}
       {updateMutation.isError && (
         <ErrorAlert error={updateMutation.error} title="Error al actualizar vendedor" />
-      )}
-      {deleteMutation.isError && (
-        <ErrorAlert error={deleteMutation.error} title="Error al eliminar vendedor" />
       )}
     </div>
   );

@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Suspense, lazy } from 'react';
 import { AuthProvider } from './auth/AuthContext';
 import PrivateRoute from './auth/PrivateRoute';
+import RoleRoute from './auth/RoleRoute';
 import LoginPage from './auth/LoginPage';
 import SidebarLayout from './layout/SidebarLayout';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -17,6 +18,8 @@ const SalesPage = lazy(() => import('./pages/SalesPage'));
 const AbonosPage = lazy(() => import('./pages/AbonosPage'));
 const ConsultaPage = lazy(() => import('./pages/ConsultaPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const CommissionistDashboardPage = lazy(() => import('./pages/CommissionistDashboardPage'));
+const ForbiddenPage = lazy(() => import('./pages/ForbiddenPage'));
 
 // Configure React Query
 const queryClient = new QueryClient({
@@ -50,12 +53,63 @@ export default function App() {
                     </PrivateRoute>
                   }
                 >
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/sales" element={<SalesPage />} />
-                  <Route path="/payments" element={<PaymentsPage />} />
-                  <Route path="/abonos" element={<AbonosPage />} />
-                  <Route path="/clients" element={<ClientsPage />} />
-                  <Route path="/sellers" element={<SellersPage />} />
+                  <Route
+                    path="/dashboard"
+                    element={
+                      <RoleRoute allow={['super_admin']} fallbackTo="/forbidden">
+                        <Dashboard />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="/sales"
+                    element={
+                      <RoleRoute allow={['super_admin', 'commissionist']}>
+                        <SalesPage />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="/payments"
+                    element={
+                      <RoleRoute allow={['super_admin']} fallbackTo="/forbidden">
+                        <PaymentsPage />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="/abonos"
+                    element={
+                      <RoleRoute allow={['super_admin']} fallbackTo="/forbidden">
+                        <AbonosPage />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="/clients"
+                    element={
+                      <RoleRoute allow={['super_admin']} fallbackTo="/forbidden">
+                        <ClientsPage />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="/sellers"
+                    element={
+                      <RoleRoute allow={['super_admin']} fallbackTo="/forbidden">
+                        <SellersPage />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="/mi-cartera"
+                    element={
+                      <RoleRoute allow={['commissionist']} fallbackTo="/forbidden">
+                        <CommissionistDashboardPage />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route path="/forbidden" element={<ForbiddenPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                 </Route>
               </Routes>

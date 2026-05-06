@@ -3,7 +3,7 @@ import axios, { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'ax
 // ============================================
 // API CONFIGURATION
 // ============================================
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://localhost:7147';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/';
 
 const axiosClient = axios.create({
   baseURL: API_BASE_URL,
@@ -48,7 +48,19 @@ export default axiosClient;
 // ============================================
 export const extractErrorMessage = (error: unknown): string => {
   if (axios.isAxiosError(error)) {
-    return error.response?.data?.message || error.message || 'Error desconocido';
+    const status = error.response?.status;
+    if (status === 403) {
+      return 'No tienes permisos para realizar esta acción.';
+    }
+    if (status === 401) {
+      return 'Tu sesión expiró o no tienes acceso. Inicia sesión nuevamente.';
+    }
+    return (
+      error.response?.data?.message ||
+      error.response?.data?.title ||
+      error.message ||
+      'Error desconocido'
+    );
   }
   if (error instanceof Error) {
     return error.message;

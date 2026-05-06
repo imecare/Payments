@@ -13,6 +13,11 @@ export const customersApi = {
     return data;
   },
 
+  getMine: async (): Promise<Customer[]> => {
+    const { data } = await apiClient.get<Customer[]>('/payment/PayCustomers/mine');
+    return data;
+  },
+
   getById: async (id: number): Promise<Customer> => {
     const { data } = await apiClient.get<Customer>(`/payment/PayCustomers/${id}`);
     return data;
@@ -26,9 +31,5 @@ export const customersApi = {
   update: async (id: number, customer: CreateCustomerDTO): Promise<Customer> => {
     const { data } = await apiClient.put<Customer>(`/payment/PayCustomers/${id}`, { ...customer, id });
     return data;
-  },
-
-  delete: async (id: number): Promise<void> => {
-    await apiClient.delete(`/payment/PayCustomers/${id}`);
   },
 };

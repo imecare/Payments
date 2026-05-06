@@ -3,6 +3,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { dashboardApi, type DashboardStats } from '../api/dashboardApi';
+import type { CommissionistStats } from '@/shared/types';
 
 // ============================================
 // QUERY KEYS
@@ -10,6 +11,7 @@ import { dashboardApi, type DashboardStats } from '../api/dashboardApi';
 export const dashboardKeys = {
   all: ['dashboard'] as const,
   stats: () => [...dashboardKeys.all, 'stats'] as const,
+  commissionistStats: () => [...dashboardKeys.all, 'commissionist-stats'] as const,
 };
 
 // ============================================
@@ -33,5 +35,14 @@ export function useDashboardStats() {
     },
     staleTime: 60 * 1000,          // 1 minute
     refetchInterval: 5 * 60 * 1000, // auto-refresh every 5 minutes
+  });
+}
+
+export function useCommissionistDashboardStats() {
+  return useQuery<CommissionistStats>({
+    queryKey: dashboardKeys.commissionistStats(),
+    queryFn: dashboardApi.getCommissionistStats,
+    staleTime: 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
   });
 }

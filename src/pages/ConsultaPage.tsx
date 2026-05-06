@@ -20,6 +20,7 @@ export default function ConsultaPage() {
   const [phone, setPhone] = useState('');
   const [rfc, setRfc] = useState('');
   const [companyCode, setCompanyCode] = useState('');
+  const [historyFilter, setHistoryFilter] = useState('');
   const [submitted, setSubmitted] = useState(false);
 
   const lookup = usePublicHistoryLookup();
@@ -32,7 +33,6 @@ export default function ConsultaPage() {
     lookup.isSuccess &&
     (lookup.data?.statusCode === 'CUSTOMER_WITHOUT_MOVEMENTS' ||
       (lookup.data?.hasMovements === false && sales.length === 0));
-  const hasMovements = lookup.isSuccess && timeline.length > 0;
 
   const timeline = useMemo(() => {
     const items: TimelineItem[] = [];
@@ -47,7 +47,7 @@ export default function ConsultaPage() {
         isPaid: sale.isPaid,
       });
 
-      (sale.payment ?? []).forEach((payment: Payment) => {
+      (sale.payments ?? sale.payment ?? []).forEach((payment: Payment) => {
         items.push({
           id: `payment-${payment.id}`,
           type: 'payment',
@@ -63,10 +63,31 @@ export default function ConsultaPage() {
     return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [sales]);
 
+  const hasMovements = lookup.isSuccess && timeline.length > 0;
+
+  const filteredTimeline = useMemo(() => {
+    const term = historyFilter.trim().toLowerCase();
+    if (!term) return timeline;
+
+    return timeline.filter((item) => {
+      const sale = sales.find((s) => s.id === item.saleId);
+      const saleDescription = (sale?.productDescription || '').toLowerCase();
+      const paymentMethod = (item.paymentMethod || '').toLowerCase();
+      const paymentReference = (item.reference || '').toLowerCase();
+
+      return (
+        String(item.saleId).includes(term) ||
+        saleDescription.includes(term) ||
+        paymentMethod.includes(term) ||
+        paymentReference.includes(term)
+      );
+    });
+  }, [historyFilter, sales, timeline]);
+
   const totals = useMemo(() => {
     const totalSales = sales.reduce((acc, s) => acc + s.totalAmount, 0);
     const totalPayments = sales
-      .flatMap((s) => s.payment ?? [])
+      .flatMap((s) => s.payments ?? s.payment ?? [])
       .reduce((acc, p) => acc + p.amount, 0);
 
     return {
@@ -229,6 +250,27 @@ export default function ConsultaPage() {
                   <strong>Historial (ordenado por fecha)</strong>
                 </Card.Header>
                 <Card.Body className="p-0">
+                  <div className="p-3 border-bottom">
+                    <div className="d-flex gap-2">
+                      <Form.Control
+                        placeholder="Filtrar historial por descripcion, ID de venta o referencia..."
+                        value={historyFilter}
+                        onChange={(e) => setHistoryFilter(e.target.value)}
+                      />
+                      <Button
+                        variant="outline-secondary"
+                        onClick={() => setHistoryFilter('')}
+                        disabled={!historyFilter.trim()}
+                      >
+                        Limpiar
+                      </Button>
+                    </div>
+                    <small className="text-muted d-block mt-2">
+                      {filteredTimeline.length} resultado{filteredTimeline.length !== 1 ? 's' : ''}
+                      {' de '}
+                      {timeline.length} movimiento{timeline.length !== 1 ? 's' : ''}
+                    </small>
+                  </div>
                   {noMovements && (
                     <Alert variant="info" className="m-3 mb-0">
                       El cliente existe, pero no tiene movimientos registrados.
@@ -241,6 +283,13 @@ export default function ConsultaPage() {
                         : 'No se encontraron movimientos con los datos proporcionados.'}
                     </div>
                   ) : (
+                    <>
+                    {filteredTimeline.length === 0 && (
+                      <div className="p-4 text-muted">
+                        No hay resultados para el filtro aplicado.
+                      </div>
+                    )}
+                    {filteredTimeline.length > 0 && (
                     <Table responsive hover className="mb-0">
                       <thead className="table-light">
                         <tr>
@@ -253,7 +302,7 @@ export default function ConsultaPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {timeline.map((item) => (
+                        {filteredTimeline.map((item) => (
                           <tr key={item.id}>
                             <td>{new Date(item.date).toLocaleDateString('es-MX')}</td>
                             <td>
@@ -267,7 +316,9 @@ export default function ConsultaPage() {
                             <td className="fw-semibold">${item.amount.toLocaleString()}</td>
                             <td>
                               {item.type === 'sale' ? (
-                                <span className="text-muted">Registro de venta</span>
+                                <span className="text-muted">
+                                  {sales.find((s) => s.id === item.saleId)?.productDescription || 'Registro de venta'}
+                                </span>
                               ) : (
                                 <>
                                   <span>{item.paymentMethod}</span>
@@ -288,6 +339,8 @@ export default function ConsultaPage() {
                         ))}
                       </tbody>
                     </Table>
+                    )}
+                    </>
                   )}
                 </Card.Body>
               </Card>

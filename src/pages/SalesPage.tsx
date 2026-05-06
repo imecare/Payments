@@ -1,34 +1,32 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useContext } from 'react';
 import { 
   Button, Table, Modal, Form, Row, Col, Badge, InputGroup, 
   ProgressBar, Card, Alert 
 } from 'react-bootstrap';
-import { 
-  FiSearch, FiPlus, FiDollarSign, FiCheckCircle, FiClock, 
-  FiTrendingUp, FiPercent, FiEye 
-} from 'react-icons/fi';
+import { FiSearch, FiPlus, FiEdit2, FiDollarSign, FiCheckCircle, FiClock, FiTrendingUp, FiPercent, FiEye } from 'react-icons/fi';
 import { 
   useSales, 
-  useCreateSale, 
+  useCreateSale,
+  useUpdateSale,
   useMarkCommissionPaid,
-  calculateSaleBalance,
-  type Sale,
-  type CreateSaleDTO
+  calculateSaleBalance
 } from '../features/sales/hooks/useSales';
 import { usePaymentsBySale } from '../features/payments/hooks/usePayments';
-import type { Payment } from '../shared/types';
+import type { Payment, Sale, CreateSaleDTO } from '../shared/types';
 import { useCustomers } from '../features/customers/hooks/useCustomers';
-import { useSellers } from '../features/sellers/hooks/useSellers';
+import { useSellers, useActiveSellers } from '../features/sellers/hooks/useSellers';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorAlert from '../components/ErrorAlert';
 import ConfirmModal from '../components/ConfirmModal';
 import StatCard from '../components/StatCard';
+import { AuthContext } from '../auth/AuthContext';
 
 const emptySale: CreateSaleDTO = { 
   customerId: 0,
   sellerId: undefined,
   totalAmount: 0,
   costPrice: 0,
+  productDescription: '',
   commissionAmount: 0,
 };
 
@@ -38,20 +36,22 @@ function SaleDetailModal({
   show, 
   onHide,
   onPayCommission,
-  isPayingCommission
+  isPayingCommission,
+  canPayCommission
 }: { 
   sale: Sale | null; 
   show: boolean; 
   onHide: () => void;
   onPayCommission: () => void;
   isPayingCommission: boolean;
+  canPayCommission: boolean;
 }) {
   const { data: payments = [], isLoading: loadingPayments } = usePaymentsBySale(sale?.id ?? 0);
   
   if (!sale) return null;
   
-  const balance = calculateSaleBalance(sale, payments);
-  const profit = sale.totalAmount - sale.costPrice;
+  const balance = calculateSaleBalance(sale.totalAmount, payments);
+  const profit = sale.totalAmount - (sale.costPrice ?? 0);
   const netProfit = profit - sale.commissionAmount;
   
   return (
@@ -102,13 +102,17 @@ function SaleDetailModal({
         </div>
         
         <Row className="mb-4">
+          <Col md={12} className="mb-3">
+            <h6>Descripcion de la venta</h6>
+            <p className="mb-0 text-muted">{sale.productDescription?.trim() || 'Sin descripcion registrada.'}</p>
+          </Col>
           <Col md={6}>
             <h6>Información Financiera</h6>
             <Table size="sm" borderless>
               <tbody>
                 <tr>
                   <td className="text-muted">Costo:</td>
-                  <td>${sale.costPrice.toLocaleString()}</td>
+                  <td>${(sale.costPrice ?? 0).toLocaleString()}</td>
                 </tr>
                 <tr>
                   <td className="text-muted">Ganancia bruta:</td>
@@ -136,7 +140,7 @@ function SaleDetailModal({
               </Badge>
             </div>
             
-            {sale.isPaid && !sale.isCommissionPaid && (
+            {canPayCommission && sale.isPaid && !sale.isCommissionPaid && (
               <Alert variant="info" className="mt-3">
                 <small>
                   La venta está liquidada. Puedes pagar la comisión al vendedor.
@@ -200,15 +204,22 @@ function SaleDetailModal({
 }
 
 export default function SalesPage() {
+  const { isSuperAdmin, isCommissionist, user } = useContext(AuthContext);
+  const dataScope: 'all' | 'mine' = isCommissionist ? 'mine' : 'all';
   // Data fetching with React Query
-  const { data: sales = [], isLoading, error, refetch } = useSales();
-  const { data: customers = [], isLoading: customersLoading } = useCustomers();
-  const { data: sellers = [], isLoading: sellersLoading } = useSellers();
+  const { data: sales = [], isLoading, error, refetch } = useSales(dataScope);
+  const { data: customers = [], isLoading: customersLoading } = useCustomers(dataScope);
+  // Use all sellers for display, active sellers for dropdown
+  const { data: sellers = [] } = useSellers(isSuperAdmin);
+  const { data: activeSellers = [], isLoading: sellersLoading } = useActiveSellers(isSuperAdmin);
   const createMutation = useCreateSale();
+  const updateMutation = useUpdateSale();
   const markCommissionPaidMutation = useMarkCommissionPaid();
 
   // UI State
   const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [formData, setFormData] = useState<CreateSaleDTO>(emptySale);
@@ -222,10 +233,15 @@ export default function SalesPage() {
     const paidSales = sales.filter(s => s.isPaid);
     const pendingCommissions = sales.filter(s => s.isPaid && !s.isCommissionPaid);
     const totalCommissionsPending = pendingCommissions.reduce((sum, s) => sum + s.commissionAmount, 0);
-    
+    // Sum only real abonos (paymentTypeId === 2) across all sales
+    const totalPaid = sales
+      .flatMap(s => s.payments ?? s.payment ?? [])
+      .filter(p => p.paymentTypeId === 2)
+      .reduce((sum, p) => sum + p.amount, 0);
+
     return {
       totalSales,
-      totalPaid: paidSales.reduce((sum, s) => sum + s.totalAmount, 0),
+      totalPaid,
       pendingCount: sales.filter(s => !s.isPaid).length,
       pendingCommissionsCount: pendingCommissions.length,
       totalCommissionsPending,
@@ -245,26 +261,37 @@ export default function SalesPage() {
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       result = result.filter(s => {
-        const customer = customers.find(c => c.id === s.customerId);
-        const customerName = customer ? `${customer.name} ${customer.lastName}`.toLowerCase() : '';
-        return customerName.includes(term) || s.id.toString().includes(term);
+        const customerName = getCustomerName(s).toLowerCase();
+        const saleDescription = (s.productDescription || '').toLowerCase();
+        return (
+          customerName.includes(term) ||
+          s.id.toString().includes(term) ||
+          saleDescription.includes(term)
+        );
       });
     }
     
     return result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [sales, filterStatus, searchTerm, customers]);
 
-  // Get customer/seller names
-  const getCustomerName = useCallback((customerId: number) => {
-    const customer = customers.find(c => c.id === customerId);
+  // Get customer/seller names — prefer flat DTO fields, fallback to local lists
+  const getCustomerName = useCallback((sale: Sale) => {
+    if (sale.customerName) return sale.customerName;
+    if (sale.customer) return `${sale.customer.name} ${sale.customer.lastName}`;
+    const customer = customers.find(c => c.id === sale.customerId);
     return customer ? `${customer.name} ${customer.lastName}` : 'Desconocido';
   }, [customers]);
 
-  const getSellerName = useCallback((sellerId: number | null) => {
-    if (!sellerId) return 'Sin asignar';
-    const seller = sellers.find(s => s.id === sellerId);
+  const getSellerName = useCallback((sale: Sale) => {
+    if (!sale.sellerId) return 'Sin asignar';
+    if (isCommissionist && user?.sellerId === sale.sellerId) {
+      return user.displayName || 'Mi cartera';
+    }
+    if (sale.sellerName) return sale.sellerName;
+    if (sale.seller) return `${sale.seller.name} ${sale.seller.lastName}`;
+    const seller = sellers.find(s => s.id === sale.sellerId);
     return seller ? `${seller.name} ${seller.lastName}` : 'Desconocido';
-  }, [sellers]);
+  }, [isCommissionist, sellers, user?.displayName, user?.sellerId]);
 
   // Calculate profit in real-time
   const calculatedProfit = useMemo(() => {
@@ -273,14 +300,32 @@ export default function SalesPage() {
   }, [formData.totalAmount, formData.costPrice]);
 
   // Handlers
-  const handleOpenModal = useCallback(() => {
-    setFormData(emptySale);
+  const handleOpenModal = useCallback((sale?: Sale) => {
+    if (!isSuperAdmin) return;
+    if (sale) {
+      setEditingId(sale.id);
+      setEditingSale(sale);
+      setFormData({
+        customerId: sale.customerId,
+        sellerId: sale.sellerId ?? undefined,
+        totalAmount: sale.totalAmount,
+        costPrice: sale.costPrice ?? 0,
+        productDescription: sale.productDescription ?? '',
+        commissionAmount: sale.commissionAmount,
+      });
+    } else {
+      setEditingId(null);
+      setEditingSale(null);
+      setFormData(emptySale);
+    }
     setFormErrors({});
     setShowModal(true);
-  }, []);
+  }, [isSuperAdmin]);
 
   const handleCloseModal = useCallback(() => {
     setShowModal(false);
+    setEditingId(null);
+    setEditingSale(null);
     setFormData(emptySale);
     setFormErrors({});
   }, []);
@@ -308,6 +353,10 @@ export default function SalesPage() {
     if (formData.costPrice > formData.totalAmount) {
       errors.costPrice = 'El costo no puede ser mayor al monto total';
     }
+
+    if (!formData.productDescription.trim()) {
+      errors.productDescription = 'La descripcion de la venta es obligatoria';
+    }
     
     if (formData.commissionAmount < 0) {
       errors.commissionAmount = 'La comisión no puede ser negativa';
@@ -327,18 +376,22 @@ export default function SalesPage() {
     if (!validateForm()) return;
 
     try {
-      await createMutation.mutateAsync(formData);
+      if (editingId) {
+        await updateMutation.mutateAsync({ id: editingId, data: formData });
+      } else {
+        await createMutation.mutateAsync(formData);
+      }
       handleCloseModal();
     } catch (err) {
-      console.error('Error creating sale:', err);
+      console.error('Error saving sale:', err);
     }
   };
 
   const handlePayCommission = async () => {
-    if (!selectedSale) return;
+    if (!selectedSale || !isSuperAdmin) return;
     
     try {
-      await markCommissionPaidMutation.mutateAsync(selectedSale.id);
+      await markCommissionPaidMutation.mutateAsync({ saleId: selectedSale.id, paid: true });
       setSelectedSale({ ...selectedSale, isCommissionPaid: true });
     } catch (err) {
       console.error('Error marking commission as paid:', err);
@@ -354,6 +407,15 @@ export default function SalesPage() {
     return <ErrorAlert error={error} title="Error al cargar ventas" onRetry={refetch} />;
   }
 
+  if (isCommissionist && !user?.sellerId) {
+    return (
+      <ErrorAlert
+        error={new Error('El usuario comisionista no tiene sellerId asignado en la sesión.')}
+        title="Sesión inválida"
+      />
+    );
+  }
+
   return (
     <div className="container-fluid">
       {/* Header */}
@@ -367,10 +429,12 @@ export default function SalesPage() {
             Gestiona las ventas, abonos y comisiones
           </p>
         </div>
-        <Button variant="primary" onClick={handleOpenModal}>
-          <FiPlus className="me-2" />
-          Nueva Venta
-        </Button>
+        {isSuperAdmin && (
+          <Button variant="primary" onClick={handleOpenModal}>
+            <FiPlus className="me-2" />
+            Nueva Venta
+          </Button>
+        )}
       </div>
 
       {/* Stats Cards */}
@@ -419,7 +483,7 @@ export default function SalesPage() {
             </InputGroup.Text>
             <Form.Control
               type="text"
-              placeholder="Buscar por cliente o ID..."
+              placeholder="Buscar por cliente, descripcion o ID..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -451,6 +515,7 @@ export default function SalesPage() {
               <th>Fecha</th>
               <th>Cliente</th>
               <th>Vendedor</th>
+              <th>Descripcion</th>
               <th className="text-end">Total</th>
               <th className="text-end">Comisión</th>
               <th>Estado</th>
@@ -460,7 +525,7 @@ export default function SalesPage() {
           <tbody>
             {filteredSales.length === 0 ? (
               <tr>
-                <td colSpan={8} className="text-center py-4 text-muted">
+                <td colSpan={9} className="text-center py-4 text-muted">
                   No hay ventas que mostrar
                 </td>
               </tr>
@@ -471,8 +536,12 @@ export default function SalesPage() {
                     <Badge bg="light" text="dark">#{sale.id}</Badge>
                   </td>
                   <td>{new Date(sale.date).toLocaleDateString('es-MX')}</td>
-                  <td>{getCustomerName(sale.customerId)}</td>
-                  <td>{getSellerName(sale.sellerId)}</td>
+                  <td>{getCustomerName(sale)}</td>
+                  <td>{getSellerName(sale)}</td>
+                  <td title={sale.productDescription || 'Sin descripcion'}>
+                    {(sale.productDescription || 'Sin descripcion').slice(0, 40)}
+                    {(sale.productDescription || '').length > 40 ? '...' : ''}
+                  </td>
                   <td className="text-end fw-bold">
                     ${sale.totalAmount.toLocaleString()}
                   </td>
@@ -499,6 +568,15 @@ export default function SalesPage() {
                   <td>
                     <Button 
                       size="sm" 
+                      variant="outline-secondary"
+                      className="me-1"
+                      onClick={() => handleOpenModal(sale)}
+                      aria-label="Editar venta"
+                    >
+                      <FiEdit2 />
+                    </Button>
+                    <Button 
+                      size="sm" 
                       variant="outline-primary"
                       onClick={() => handleViewDetail(sale)}
                       aria-label="Ver detalle"
@@ -513,10 +591,10 @@ export default function SalesPage() {
         </Table>
       </div>
 
-      {/* Create Sale Modal */}
-      <Modal show={showModal} onHide={handleCloseModal} centered size="lg">
+      {/* Create/Edit Sale Modal */}
+      <Modal show={showModal && isSuperAdmin} onHide={handleCloseModal} centered size="lg">
         <Modal.Header closeButton>
-          <Modal.Title>Nueva Venta</Modal.Title>
+          <Modal.Title>{editingId ? 'Editar Venta' : 'Nueva Venta'}</Modal.Title>
         </Modal.Header>
         <Form onSubmit={handleSave} noValidate>
           <Modal.Body>
@@ -531,6 +609,10 @@ export default function SalesPage() {
                     disabled={customersLoading}
                   >
                     <option value={0}>Selecciona un cliente</option>
+                    {/* Fallback: if editing and customer not in list, show from DTO */}
+                    {editingSale?.customerId && !customers.find(c => c.id === editingSale.customerId) && (
+                      <option value={editingSale.customerId}>{editingSale.customerName ?? `Cliente #${editingSale.customerId}`}</option>
+                    )}
                     {customers.map((customer) => (
                       <option key={customer.id} value={customer.id}>
                         {customer.name} {customer.lastName}
@@ -554,12 +636,35 @@ export default function SalesPage() {
                     disabled={sellersLoading}
                   >
                     <option value={0}>Sin asignar</option>
-                    {sellers.map((seller) => (
+                    {/* Fallback: if editing and seller not in active list, show from DTO */}
+                    {editingSale?.sellerId && !activeSellers.find(s => s.id === editingSale.sellerId) && (
+                      <option value={editingSale.sellerId}>{editingSale.sellerName ?? `Vendedor #${editingSale.sellerId}`}</option>
+                    )}
+                    {activeSellers.map((seller) => (
                       <option key={seller.id} value={seller.id}>
                         {seller.name} {seller.lastName}
                       </option>
                     ))}
                   </Form.Select>
+                </Form.Group>
+              </Col>
+            </Row>
+
+            <Row>
+              <Col md={12}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Descripcion de la Venta *</Form.Label>
+                  <Form.Control
+                    as="textarea"
+                    rows={2}
+                    value={formData.productDescription}
+                    onChange={(e) => setFormData({ ...formData, productDescription: e.target.value })}
+                    isInvalid={!!formErrors.productDescription}
+                    placeholder="Ej. Venta de equipo, modelo, servicio o detalle relevante"
+                  />
+                  <Form.Control.Feedback type="invalid">
+                    {formErrors.productDescription}
+                  </Form.Control.Feedback>
                 </Form.Group>
               </Col>
             </Row>
@@ -651,11 +756,11 @@ export default function SalesPage() {
             </Card>
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="secondary" onClick={handleCloseModal} disabled={createMutation.isPending}>
+            <Button variant="secondary" onClick={handleCloseModal} disabled={createMutation.isPending || updateMutation.isPending}>
               Cancelar
             </Button>
-            <Button type="submit" variant="primary" disabled={createMutation.isPending}>
-              {createMutation.isPending ? 'Guardando...' : 'Crear Venta'}
+            <Button type="submit" variant="primary" disabled={createMutation.isPending || updateMutation.isPending}>
+              {(createMutation.isPending || updateMutation.isPending) ? 'Guardando...' : editingId ? 'Guardar Cambios' : 'Crear Venta'}
             </Button>
           </Modal.Footer>
         </Form>
@@ -668,11 +773,15 @@ export default function SalesPage() {
         onHide={() => setShowDetailModal(false)}
         onPayCommission={handlePayCommission}
         isPayingCommission={markCommissionPaidMutation.isPending}
+        canPayCommission={isSuperAdmin}
       />
 
       {/* Error Alerts */}
       {createMutation.isError && (
         <ErrorAlert error={createMutation.error} title="Error al crear venta" />
+      )}
+      {updateMutation.isError && (
+        <ErrorAlert error={updateMutation.error} title="Error al actualizar venta" />
       )}
     </div>
   );

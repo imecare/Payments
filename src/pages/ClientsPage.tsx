@@ -1,17 +1,15 @@
 import { useState, useCallback, useMemo } from 'react';
 import { Button, Table, Modal, Form, Row, Col, Badge, InputGroup } from 'react-bootstrap';
-import { FiSearch, FiPlus, FiEdit2, FiTrash2, FiPhone, FiUsers } from 'react-icons/fi';
+import { FiSearch, FiPlus, FiEdit2, FiPhone, FiUsers } from 'react-icons/fi';
 import { 
   useCustomers, 
   useCreateCustomer, 
-  useUpdateCustomer, 
-  useDeleteCustomer
+  useUpdateCustomer
 } from '../features/customers/hooks/useCustomers';
 import type { Customer, CreateCustomerDTO } from '../shared/types';
 import { useSellers } from '../features/sellers/hooks/useSellers';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorAlert from '../components/ErrorAlert';
-import ConfirmModal from '../components/ConfirmModal';
 
 const emptyCustomer: CreateCustomerDTO = { 
   name: '', 
@@ -27,11 +25,9 @@ export default function ClientsPage() {
   const { data: sellers = [], isLoading: sellersLoading } = useSellers();
   const createMutation = useCreateCustomer();
   const updateMutation = useUpdateCustomer();
-  const deleteMutation = useDeleteCustomer();
 
   // UI State
   const [showModal, setShowModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState<CreateCustomerDTO>(emptyCustomer);
   const [searchTerm, setSearchTerm] = useState('');
@@ -122,23 +118,6 @@ export default function ClientsPage() {
     } catch (err) {
       console.error('Error saving customer:', err);
     }
-  };
-
-  const handleDelete = async () => {
-    if (!editingId) return;
-    
-    try {
-      await deleteMutation.mutateAsync(editingId);
-      setShowDeleteModal(false);
-      setEditingId(null);
-    } catch (err) {
-      console.error('Error deleting customer:', err);
-    }
-  };
-
-  const openDeleteModal = (customer: Customer) => {
-    setEditingId(customer.id);
-    setShowDeleteModal(true);
   };
 
   const isPending = createMutation.isPending || updateMutation.isPending;
@@ -236,20 +215,11 @@ export default function ClientsPage() {
                   <td>
                     <Button 
                       size="sm" 
-                      variant="outline-primary" 
-                      className="me-2"
+                      variant="outline-primary"
                       onClick={() => handleOpenModal(customer)}
                       aria-label={`Editar ${customer.name}`}
                     >
                       <FiEdit2 />
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="outline-danger"
-                      onClick={() => openDeleteModal(customer)}
-                      aria-label={`Eliminar ${customer.name}`}
-                    >
-                      <FiTrash2 />
                     </Button>
                   </td>
                 </tr>
@@ -367,27 +337,12 @@ export default function ClientsPage() {
         </Form>
       </Modal>
 
-      {/* Delete Confirmation Modal */}
-      <ConfirmModal
-        show={showDeleteModal}
-        onHide={() => setShowDeleteModal(false)}
-        onConfirm={handleDelete}
-        title="Eliminar Cliente"
-        message="¿Estás seguro de que deseas eliminar este cliente? Esta acción no se puede deshacer."
-        confirmText="Eliminar"
-        variant="danger"
-        isLoading={deleteMutation.isPending}
-      />
-
       {/* Mutation Error Alerts */}
       {createMutation.isError && (
         <ErrorAlert error={createMutation.error} title="Error al crear cliente" />
       )}
       {updateMutation.isError && (
         <ErrorAlert error={updateMutation.error} title="Error al actualizar cliente" />
-      )}
-      {deleteMutation.isError && (
-        <ErrorAlert error={deleteMutation.error} title="Error al eliminar cliente" />
       )}
     </div>
   );

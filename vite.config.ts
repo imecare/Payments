@@ -10,4 +10,18 @@ export default defineConfig({
       '@': path.resolve(__dirname, 'src'),
     },
   },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://localhost:7147',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/payment': {
+        target: 'https://localhost:7147',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+  },
 })

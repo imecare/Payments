@@ -9,7 +9,7 @@ import { customersApi, type CreateCustomerDTO } from '../api/customersApi';
 // ============================================
 export const customerKeys = {
   all: ['customers'] as const,
-  lists: () => [...customerKeys.all, 'list'] as const,
+  lists: (scope: 'all' | 'mine' = 'all') => [...customerKeys.all, 'list', scope] as const,
   details: () => [...customerKeys.all, 'detail'] as const,
   detail: (id: number) => [...customerKeys.details(), id] as const,
 };
@@ -18,10 +18,10 @@ export const customerKeys = {
 // QUERIES
 // ============================================
 
-export function useCustomers() {
+export function useCustomers(scope: 'all' | 'mine' = 'all') {
   return useQuery({
-    queryKey: customerKeys.lists(),
-    queryFn: customersApi.getAll,
+    queryKey: customerKeys.lists(scope),
+    queryFn: scope === 'mine' ? customersApi.getMine : customersApi.getAll,
     staleTime: 5 * 60 * 1000,
   });
 }
@@ -43,7 +43,7 @@ export function useCreateCustomer() {
   return useMutation({
     mutationFn: (data: CreateCustomerDTO) => customersApi.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: customerKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: customerKeys.all });
     },
   });
 }
@@ -54,18 +54,8 @@ export function useUpdateCustomer() {
     mutationFn: ({ id, data }: { id: number; data: CreateCustomerDTO }) =>
       customersApi.update(id, data),
     onSuccess: (_, { id }) => {
-      queryClient.invalidateQueries({ queryKey: customerKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: customerKeys.all });
       queryClient.invalidateQueries({ queryKey: customerKeys.detail(id) });
-    },
-  });
-}
-
-export function useDeleteCustomer() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: number) => customersApi.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: customerKeys.lists() });
     },
   });
 }
