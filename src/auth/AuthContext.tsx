@@ -8,6 +8,7 @@ interface AuthUser {
   token: string;
   role: AppRole;
   sellerId: number | null;
+  userId?: string;
   email?: string;
   firstName?: string;
   lastName?: string;
@@ -102,6 +103,7 @@ function buildUserFromToken(
     token,
     role,
     sellerId: readNumberClaim(payload, ['sellerId', 'SellerId', 'seller_id', 'subSellerId']),
+    userId: readStringClaim(payload, ['sub', 'id', 'userId', 'UserId', 'user_id', 'nameid', 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier']),
     email: readStringClaim(payload, ['email', 'unique_name']) ?? seed?.email,
     firstName,
     lastName,

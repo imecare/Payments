@@ -26,12 +26,16 @@ export interface CreatePaymentDTO {
   paymentMethod: PaymentMethod;
   /** Optional bank/Stripe reference */
   reference?: string;
+  /** Date when the payment was actually made (defaults to today) */
+  paymentDate?: string;
 }
 
 export interface UpdatePaymentDTO {
   amount: number;
   paymentMethod: PaymentMethod;
   reference?: string;
+  /** Date when the payment was actually made (optional, keeps original if not sent) */
+  paymentDate?: string;
 }
 
 // ============================================

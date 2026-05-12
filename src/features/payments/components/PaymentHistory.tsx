@@ -1,6 +1,12 @@
 import { useState } from 'react';
-import { Table, Badge, Button, Modal, Form, InputGroup, Alert } from 'react-bootstrap';
-import { FiEdit2, FiTrash2, FiClock } from 'react-icons/fi';
+import { Table, Badge, Button, Modal, Form, InputGroup, Alert, Row, Col } from 'react-bootstrap';
+import { FiEdit2, FiTrash2, FiClock, FiCalendar } from 'react-icons/fi';
+
+/** Returns today's date in YYYY-MM-DD format for input[type=date] */
+const getTodayDate = (): string => {
+  const today = new Date();
+  return today.toISOString().split('T')[0];
+};
 import {
   usePaymentsBySale,
   useUpdatePayment,
@@ -21,7 +27,7 @@ export default function PaymentHistory({ saleId }: PaymentHistoryProps) {
   const deleteMutation = useDeletePayment(saleId);
 
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
-  const [editForm, setEditForm] = useState<UpdatePaymentDTO>({ amount: 0, paymentMethod: 'Cash', reference: '' });
+  const [editForm, setEditForm] = useState<UpdatePaymentDTO>({ amount: 0, paymentMethod: 'Cash', reference: '', paymentDate: getTodayDate() });
   const [deletingPayment, setDeletingPayment] = useState<Payment | null>(null);
   const [deleteReason, setDeleteReason] = useState('');
 
@@ -29,12 +35,21 @@ export default function PaymentHistory({ saleId }: PaymentHistoryProps) {
 
   const openEdit = (p: Payment) => {
     setEditingPayment(p);
-    setEditForm({ amount: p.amount, paymentMethod: p.paymentMethod, reference: p.reference ?? '' });
+    setEditForm({ 
+      amount: p.amount, 
+      paymentMethod: p.paymentMethod, 
+      reference: p.reference ?? '',
+      paymentDate: p.date ? p.date.split('T')[0] : getTodayDate(),
+    });
   };
 
   const handleUpdate = async () => {
     if (!editingPayment) return;
-    await updateMutation.mutateAsync({ id: editingPayment.id, dto: editForm });
+    const payload = {
+      ...editForm,
+      paymentDate: editForm.paymentDate ? `${editForm.paymentDate}T00:00:00` : undefined,
+    };
+    await updateMutation.mutateAsync({ id: editingPayment.id, dto: payload });
     setEditingPayment(null);
   };
 
@@ -142,6 +157,23 @@ export default function PaymentHistory({ saleId }: PaymentHistoryProps) {
               onChange={e => setEditForm({ ...editForm, reference: e.target.value })}
               placeholder="Opcional"
             />
+          </Form.Group>
+          <Form.Group className="mt-3">
+            <Form.Label>Fecha del Abono</Form.Label>
+            <InputGroup>
+              <InputGroup.Text>
+                <FiCalendar />
+              </InputGroup.Text>
+              <Form.Control
+                type="date"
+                value={editForm.paymentDate ?? getTodayDate()}
+                onChange={e => setEditForm({ ...editForm, paymentDate: e.target.value })}
+                max={getTodayDate()}
+              />
+            </InputGroup>
+            <Form.Text className="text-muted">
+              Modifica si el pago fue en otra fecha
+            </Form.Text>
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>

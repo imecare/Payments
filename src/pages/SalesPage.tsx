@@ -3,7 +3,13 @@ import {
   Button, Table, Modal, Form, Row, Col, Badge, InputGroup, 
   ProgressBar, Card, Alert 
 } from 'react-bootstrap';
-import { FiSearch, FiPlus, FiEdit2, FiDollarSign, FiCheckCircle, FiClock, FiTrendingUp, FiPercent, FiEye } from 'react-icons/fi';
+import { FiSearch, FiPlus, FiEdit2, FiDollarSign, FiCheckCircle, FiClock, FiTrendingUp, FiPercent, FiEye, FiCalendar } from 'react-icons/fi';
+
+/** Returns today's date in YYYY-MM-DD format for input[type=date] */
+const getTodayDate = (): string => {
+  const today = new Date();
+  return today.toISOString().split('T')[0];
+};
 import { 
   useSales, 
   useCreateSale,
@@ -27,6 +33,7 @@ const emptySale: CreateSaleDTO = {
   costPrice: 0,
   productDescription: '',
   commissionAmount: 0,
+  date: getTodayDate(),
 };
 
 export default function SalesPage() {
@@ -51,6 +58,8 @@ export default function SalesPage() {
   const [formData, setFormData] = useState<CreateSaleDTO>(emptySale);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'paid'>('all');
+  const [sortBy, setSortBy] = useState<'date-desc' | 'date-asc' | 'seller-asc' | 'seller-desc'>('date-desc');
+  const [filterSellerId, setFilterSellerId] = useState<number | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   // Computed values
@@ -71,32 +80,6 @@ export default function SalesPage() {
     };
   }, [sales]);
 
-  // Filtered sales
-  const filteredSales = useMemo(() => {
-    let result = sales;
-    
-    if (filterStatus === 'pending') {
-      result = result.filter(s => !s.isPaid);
-    } else if (filterStatus === 'paid') {
-      result = result.filter(s => s.isPaid);
-    }
-    
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      result = result.filter(s => {
-        const customerName = getCustomerName(s).toLowerCase();
-        const saleDescription = (s.productDescription || '').toLowerCase();
-        return (
-          customerName.includes(term) ||
-          s.id.toString().includes(term) ||
-          saleDescription.includes(term)
-        );
-      });
-    }
-    
-    return result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [sales, filterStatus, searchTerm, customers]);
-
   // Get customer/seller names — prefer flat DTO fields, fallback to local lists
   const getCustomerName = useCallback((sale: Sale) => {
     if (sale.customerName) return sale.customerName;
@@ -115,6 +98,63 @@ export default function SalesPage() {
     const seller = sellers.find(s => s.id === sale.sellerId);
     return seller ? `${seller.name} ${seller.lastName}` : 'Desconocido';
   }, [isCommissionist, sellers, user?.displayName, user?.sellerId]);
+
+  // Get unique sellers from sales for dropdown
+  const salesSellers = useMemo(() => {
+    const sellerIds = [...new Set(sales.map(s => s.sellerId).filter(Boolean))] as number[];
+    return sellers.filter(s => sellerIds.includes(s.id));
+  }, [sales, sellers]);
+
+  // Filtered sales
+  const filteredSales = useMemo(() => {
+    let result = sales;
+    
+    if (filterStatus === 'pending') {
+      result = result.filter(s => !s.isPaid);
+    } else if (filterStatus === 'paid') {
+      result = result.filter(s => s.isPaid);
+    }
+
+    // Filter by seller
+    if (filterSellerId !== null) {
+      result = result.filter(s => s.sellerId === filterSellerId);
+    }
+    
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      result = result.filter(s => {
+        const customerName = getCustomerName(s).toLowerCase();
+        const saleDescription = (s.productDescription || '').toLowerCase();
+        return (
+          customerName.includes(term) ||
+          s.id.toString().includes(term) ||
+          saleDescription.includes(term)
+        );
+      });
+    }
+    
+    // Sorting
+    return result.sort((a, b) => {
+      switch (sortBy) {
+        case 'date-desc':
+          return new Date(b.date).getTime() - new Date(a.date).getTime();
+        case 'date-asc':
+          return new Date(a.date).getTime() - new Date(b.date).getTime();
+        case 'seller-asc': {
+          const sellerA = getSellerName(a).toLowerCase();
+          const sellerB = getSellerName(b).toLowerCase();
+          return sellerA.localeCompare(sellerB);
+        }
+        case 'seller-desc': {
+          const sellerA = getSellerName(a).toLowerCase();
+          const sellerB = getSellerName(b).toLowerCase();
+          return sellerB.localeCompare(sellerA);
+        }
+        default:
+          return 0;
+      }
+    });
+  }, [sales, filterStatus, searchTerm, sortBy, getCustomerName, getSellerName, filterSellerId]);
 
   // Calculate profit in real-time
   const calculatedProfit = useMemo(() => {
@@ -135,6 +175,7 @@ export default function SalesPage() {
         costPrice: sale.costPrice ?? 0,
         productDescription: sale.productDescription ?? '',
         commissionAmount: sale.commissionAmount,
+        date: sale.date ? sale.date.split('T')[0] : getTodayDate(),
       });
     } else {
       setEditingId(null);
@@ -198,11 +239,17 @@ export default function SalesPage() {
     
     if (!validateForm()) return;
 
+    // Format date to ISO with time component for backend
+    const payload = {
+      ...formData,
+      date: formData.date ? `${formData.date}T00:00:00` : undefined,
+    };
+
     try {
       if (editingId) {
-        await updateMutation.mutateAsync({ id: editingId, data: formData });
+        await updateMutation.mutateAsync({ id: editingId, data: payload });
       } else {
-        await createMutation.mutateAsync(formData);
+        await createMutation.mutateAsync(payload);
       }
       handleCloseModal();
     } catch (err) {
@@ -322,6 +369,32 @@ export default function SalesPage() {
             <option value="paid">Liquidadas</option>
           </Form.Select>
         </Col>
+        <Col md={4} lg={3}>
+          <Form.Select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+          >
+            <option value="date-desc">Fecha (más reciente)</option>
+            <option value="date-asc">Fecha (más antigua)</option>
+            <option value="seller-asc">Vendedor (A-Z)</option>
+            <option value="seller-desc">Vendedor (Z-A)</option>
+          </Form.Select>
+        </Col>
+        {salesSellers.length > 0 && (
+          <Col md={4} lg={3}>
+            <Form.Select
+              value={filterSellerId ?? ''}
+              onChange={(e) => setFilterSellerId(e.target.value ? Number(e.target.value) : null)}
+            >
+              <option value="">Todos los vendedores</option>
+              {salesSellers.map((seller) => (
+                <option key={seller.id} value={seller.id}>
+                  {seller.name} {seller.lastName}
+                </option>
+              ))}
+            </Form.Select>
+          </Col>
+        )}
         <Col className="d-flex align-items-center justify-content-md-end">
           <Badge bg="secondary" className="fs-6">
             {filteredSales.length} venta{filteredSales.length !== 1 ? 's' : ''}
@@ -469,6 +542,28 @@ export default function SalesPage() {
                       </option>
                     ))}
                   </Form.Select>
+                </Form.Group>
+              </Col>
+            </Row>
+
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Fecha de la Venta</Form.Label>
+                  <InputGroup>
+                    <InputGroup.Text>
+                      <FiCalendar />
+                    </InputGroup.Text>
+                    <Form.Control
+                      type="date"
+                      value={formData.date ?? getTodayDate()}
+                      onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                      max={getTodayDate()}
+                    />
+                  </InputGroup>
+                  <Form.Text className="text-muted">
+                    Por defecto es hoy. Modifica si la venta fue en otra fecha.
+                  </Form.Text>
                 </Form.Group>
               </Col>
             </Row>

@@ -3,9 +3,10 @@ import {
   Container, Row, Col, Card, Table, Modal, Badge,
   Button, InputGroup, Form,
 } from 'react-bootstrap';
-import { FiSearch, FiDollarSign, FiCheckCircle, FiClock, FiPlus } from 'react-icons/fi';
+import { FiSearch, FiDollarSign, FiCheckCircle, FiClock, FiPlus, FiFilter } from 'react-icons/fi';
 import { useSales } from '../features/sales/hooks/useSales';
 import { useCustomers } from '../features/customers/hooks/useCustomers';
+import { useSellers } from '../features/sellers/hooks/useSellers';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorAlert from '../components/ErrorAlert';
 import StatCard from '../components/StatCard';
@@ -17,6 +18,7 @@ import type { Sale } from '../shared/types';
 // TYPES
 // ============================================
 type Filter = 'all' | 'pending' | 'paid';
+type SortBy = 'date-desc' | 'date-asc' | 'seller-asc' | 'seller-desc';
 
 // ============================================
 // PAGE
@@ -24,6 +26,7 @@ type Filter = 'all' | 'pending' | 'paid';
 export default function AbonosPage() {
   const { data: sales = [], isLoading, error, refetch } = useSales();
   const { data: customers = [] } = useCustomers();
+  const { data: sellers = [] } = useSellers();
 
   // Modal state
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
@@ -32,6 +35,8 @@ export default function AbonosPage() {
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
+  const [sortBy, setSortBy] = useState<SortBy>('date-desc');
+  const [filterSellerId, setFilterSellerId] = useState<number | null>(null);
 
   // ----------------------------------------
   // Derived data
@@ -41,11 +46,28 @@ export default function AbonosPage() {
     return c ? `${c.name} ${c.lastName}` : `Cliente #${customerId}`;
   };
 
+  const getSellerName = (sellerId: number | undefined) => {
+    if (!sellerId) return 'Sin asignar';
+    const s = sellers.find((x) => x.id === sellerId);
+    return s ? `${s.name} ${s.lastName}` : `Vendedor #${sellerId}`;
+  };
+
+  // Get unique sellers from sales for dropdown
+  const salesSellers = useMemo(() => {
+    const sellerIds = [...new Set(sales.map(s => s.sellerId).filter(Boolean))] as number[];
+    return sellers.filter(s => sellerIds.includes(s.id));
+  }, [sales, sellers]);
+
   const filteredSales = useMemo(() => {
     let result = sales;
 
     if (filter === 'pending') result = result.filter((s) => !s.isPaid);
     if (filter === 'paid')    result = result.filter((s) => s.isPaid);
+
+    // Filter by seller
+    if (filterSellerId !== null) {
+      result = result.filter((s) => s.sellerId === filterSellerId);
+    }
 
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
@@ -56,8 +78,28 @@ export default function AbonosPage() {
       );
     }
 
-    return result;
-  }, [sales, filter, searchTerm, customers]);
+    // Sorting
+    return result.sort((a, b) => {
+      switch (sortBy) {
+        case 'date-desc':
+          return new Date(b.date).getTime() - new Date(a.date).getTime();
+        case 'date-asc':
+          return new Date(a.date).getTime() - new Date(b.date).getTime();
+        case 'seller-asc': {
+          const sellerA = getSellerName(a.sellerId).toLowerCase();
+          const sellerB = getSellerName(b.sellerId).toLowerCase();
+          return sellerA.localeCompare(sellerB);
+        }
+        case 'seller-desc': {
+          const sellerA = getSellerName(a.sellerId).toLowerCase();
+          const sellerB = getSellerName(b.sellerId).toLowerCase();
+          return sellerB.localeCompare(sellerA);
+        }
+        default:
+          return 0;
+      }
+    });
+  }, [sales, filter, searchTerm, customers, sortBy, filterSellerId, sellers]);
 
   const stats = useMemo(() => {
     const total        = sales.reduce((acc, s) => acc + s.totalAmount, 0);
@@ -163,6 +205,36 @@ export default function AbonosPage() {
               ))}
             </Col>
           </Row>
+          <Row className="g-2 align-items-center mt-2">
+            <Col md={4}>
+              <Form.Select
+                size="sm"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortBy)}
+              >
+                <option value="date-desc">Fecha (más reciente)</option>
+                <option value="date-asc">Fecha (más antigua)</option>
+                <option value="seller-asc">Vendedor (A-Z)</option>
+                <option value="seller-desc">Vendedor (Z-A)</option>
+              </Form.Select>
+            </Col>
+            {salesSellers.length > 0 && (
+              <Col md={4}>
+                <Form.Select
+                  size="sm"
+                  value={filterSellerId ?? ''}
+                  onChange={(e) => setFilterSellerId(e.target.value ? Number(e.target.value) : null)}
+                >
+                  <option value="">Todos los vendedores</option>
+                  {salesSellers.map((seller) => (
+                    <option key={seller.id} value={seller.id}>
+                      {seller.name} {seller.lastName}
+                    </option>
+                  ))}
+                </Form.Select>
+              </Col>
+            )}
+          </Row>
         </Card.Body>
       </Card>
 
@@ -174,6 +246,7 @@ export default function AbonosPage() {
               <tr>
                 <th>#</th>
                 <th>Cliente</th>
+                <th>Vendedor</th>
                 <th>Total</th>
                 <th>Estado</th>
                 <th>Fecha</th>
@@ -183,7 +256,7 @@ export default function AbonosPage() {
             <tbody>
               {filteredSales.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-4 text-muted">
+                  <td colSpan={7} className="text-center py-4 text-muted">
                     No se encontraron ventas.
                   </td>
                 </tr>
@@ -192,6 +265,7 @@ export default function AbonosPage() {
                   <tr key={sale.id}>
                     <td className="text-muted">{sale.id}</td>
                     <td>{getCustomerName(sale.customerId)}</td>
+                    <td className="text-muted">{getSellerName(sale.sellerId)}</td>
                     <td className="fw-semibold">${sale.totalAmount.toLocaleString()}</td>
                     <td>
                       <Badge bg={sale.isPaid ? 'success' : 'warning'}>

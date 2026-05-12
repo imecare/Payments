@@ -4,6 +4,7 @@ import { useAuth } from './AuthContext';
 import axiosClient from '../shared/api/axiosClient';
 import { Form, Button, Container, Row, Col, Alert, Spinner } from 'react-bootstrap';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
+import JumperLogo from '../components/JumperLogo';
 
 
 export default function LoginPage() {
@@ -81,6 +82,9 @@ export default function LoginPage() {
     <Container className="mt-5">
       <Row className="justify-content-center">
         <Col md={4}>
+          <div className="text-center mb-4">
+            <JumperLogo className="w-100 h-auto" style={{ maxWidth: '280px', margin: '0 auto' }} />
+          </div>
           <h3 className="text-center mb-3">Iniciar sesión</h3>
           <Form onSubmit={handleSubmit}>
             <Form.Group className="mb-3">

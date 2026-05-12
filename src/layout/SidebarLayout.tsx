@@ -6,6 +6,7 @@ import {
   FiHome, FiShoppingCart, FiDollarSign, FiUsers, 
   FiUserCheck, FiSettings, FiLogOut, FiMenu, FiX, FiCreditCard
 } from 'react-icons/fi';
+import JumperLogo from '../components/JumperLogo';
 
 interface NavItemProps {
   to: string;
@@ -78,12 +79,8 @@ export default function SidebarLayout() {
         }}
       >
         {/* Logo/Brand */}
-        <div className="p-4 border-bottom border-secondary">
-          <h4 className="mb-0 d-flex align-items-center">
-            <FiDollarSign className="me-2 text-primary" />
-            BusinessCloud
-          </h4>
-          <small className="text-muted">Sistema de Pagos</small>
+        <div className="p-3 border-bottom border-secondary d-flex justify-content-center">
+          <JumperLogo className="" style={{ width: '180px', height: 'auto' }} />
         </div>
 
         {/* Navigation */}
@@ -104,9 +101,22 @@ export default function SidebarLayout() {
           <div className="mb-3 px-2">
             <div className="small text-white fw-semibold">{user?.displayName || user?.email || 'Usuario'}</div>
             <div className="small text-muted">
-              {isSuperAdmin ? 'SuperAdmin' : isCommissionist ? 'Commissionist' : 'Sin rol'}
+              {user?.userId && <span>ID: {user.userId}</span>}
+            </div>
+            <div className="small text-muted">
+              {isSuperAdmin ? 'SuperAdmin' : isCommissionist ? 'Vendedor' : 'Sin rol'}
             </div>
           </div>
+
+          {/* Versión del sistema */}
+          <div className="mb-3 px-2">
+            <div className="small text-muted">Versión</div>
+            <div className="small text-white fw-bold">v1.0.0 Alpha</div>
+            <div className="progress mt-1" style={{ height: '3px' }}>
+              <div className="progress-bar bg-primary" style={{ width: '40%' }}></div>
+            </div>
+          </div>
+
           <Nav.Item>
             <Nav.Link 
               as={Link} 
@@ -141,10 +151,7 @@ export default function SidebarLayout() {
 
       {/* Mobile Header */}
       <header className="d-md-none bg-dark text-white p-3 d-flex justify-content-between align-items-center sticky-top">
-        <h5 className="mb-0">
-          <FiDollarSign className="me-2 text-primary" />
-          BusinessCloud
-        </h5>
+        <JumperLogo className="" style={{ width: '140px', height: 'auto' }} />
         <Button
           variant="outline-light"
           size="sm"

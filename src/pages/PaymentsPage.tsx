@@ -5,9 +5,16 @@ import {
 } from 'react-bootstrap';
 import { 
   FiDollarSign, FiCreditCard, FiSearch, FiCheck, FiClock,
-  FiPlus, FiRefreshCw
+  FiPlus, FiRefreshCw, FiCalendar
 } from 'react-icons/fi';
+
+/** Returns today's date in YYYY-MM-DD format for input[type=date] */
+const getTodayDate = (): string => {
+  const today = new Date();
+  return today.toISOString().split('T')[0];
+};
 import { useSales } from '../features/sales/hooks/useSales';
+import { useSellers } from '../features/sellers/hooks/useSellers';
 import { useCreatePayment } from '../features/payments/hooks/usePayments';
 import type { Sale } from '../shared/types';
 import type { CreatePaymentDTO, PaymentMethod } from '../features/payments/api/paymentsApi';
@@ -29,17 +36,20 @@ export default function PaymentsPage() {
   // Data fetching
   const { data: sales = [], isLoading: salesLoading, error: salesError, refetch: refetchSales } = useSales();
   const { data: customers = [] } = useCustomers();
+  const { data: sellers = [] } = useSellers();
   const createPaymentMutation = useCreatePayment();
   
   // State
   const [selectedSaleId, setSelectedSaleId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAllSales, setShowAllSales] = useState(false);
+  const [filterSellerId, setFilterSellerId] = useState<number | null>(null);
   const [formData, setFormData] = useState<CreatePaymentDTO>({
     saleId: 0,
     amount: 0,
     paymentMethod: 'Cash',
     reference: '',
+    paymentDate: getTodayDate(),
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -63,6 +73,11 @@ export default function PaymentsPage() {
   const pendingSales = useMemo(() => {
     let result = showAllSales ? sales : sales.filter(s => !s.isPaid);
     
+    // Filter by seller
+    if (filterSellerId !== null) {
+      result = result.filter(s => s.sellerId === filterSellerId);
+    }
+    
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       result = result.filter(s => {
@@ -73,7 +88,13 @@ export default function PaymentsPage() {
     }
     
     return result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [sales, customers, searchTerm, showAllSales]);
+  }, [sales, customers, searchTerm, showAllSales, filterSellerId]);
+  
+  // Get unique sellers from sales for dropdown
+  const salesSellers = useMemo(() => {
+    const sellerIds = [...new Set(sales.map(s => s.sellerId).filter(Boolean))] as number[];
+    return sellers.filter(s => sellerIds.includes(s.id));
+  }, [sales, sellers]);
   
   // Get customer name
   const getCustomerName = useCallback((customerId: number) => {
@@ -89,6 +110,7 @@ export default function PaymentsPage() {
       amount: 0,
       paymentMethod: 'Cash',
       reference: '',
+      paymentDate: getTodayDate(),
     });
     setFormErrors({});
   }, []);
@@ -130,6 +152,7 @@ export default function PaymentsPage() {
       await createPaymentMutation.mutateAsync({
         ...formData,
         saleId: selectedSaleId!,
+        paymentDate: formData.paymentDate ? `${formData.paymentDate}T00:00:00` : undefined,
       });
       
       const newRemaining = selectedSaleBalance.remainingBalance - formData.amount;
@@ -144,6 +167,7 @@ export default function PaymentsPage() {
         amount: 0,
         paymentMethod: 'Cash',
         reference: '',
+        paymentDate: getTodayDate(),
       });
       
       setShowSuccessModal(true);
@@ -217,6 +241,22 @@ export default function PaymentsPage() {
                 checked={showAllSales}
                 onChange={(e) => setShowAllSales(e.target.checked)}
               />
+              
+              {salesSellers.length > 0 && (
+                <Form.Select
+                  size="sm"
+                  className="mt-2"
+                  value={filterSellerId ?? ''}
+                  onChange={(e) => setFilterSellerId(e.target.value ? Number(e.target.value) : null)}
+                >
+                  <option value="">Todos los vendedores</option>
+                  {salesSellers.map((seller) => (
+                    <option key={seller.id} value={seller.id}>
+                      {seller.name} {seller.lastName}
+                    </option>
+                  ))}
+                </Form.Select>
+              )}
             </Card.Header>
             <Card.Body style={{ maxHeight: '60vh', overflowY: 'auto' }}>
               {pendingSales.length === 0 ? (
@@ -375,6 +415,26 @@ export default function PaymentsPage() {
                             onChange={(e) => setFormData({ ...formData, reference: e.target.value })}
                             placeholder="Opcional"
                           />
+                        </Form.Group>
+                      </Col>
+                      
+                      <Col md={4}>
+                        <Form.Group>
+                          <Form.Label>Fecha del Abono</Form.Label>
+                          <InputGroup>
+                            <InputGroup.Text>
+                              <FiCalendar />
+                            </InputGroup.Text>
+                            <Form.Control
+                              type="date"
+                              value={formData.paymentDate ?? getTodayDate()}
+                              onChange={(e) => setFormData({ ...formData, paymentDate: e.target.value })}
+                              max={getTodayDate()}
+                            />
+                          </InputGroup>
+                          <Form.Text className="text-muted">
+                            Por defecto es hoy
+                          </Form.Text>
                         </Form.Group>
                       </Col>
                     </Row>

@@ -102,6 +102,8 @@ export interface CreateSaleDTO {
   costPrice: number;
   productDescription: string;
   commissionAmount: number;
+  /** Optional date for the sale (defaults to today on backend) */
+  date?: string;
 }
 
 // ============================================

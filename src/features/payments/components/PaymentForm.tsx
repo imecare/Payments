@@ -1,8 +1,14 @@
 import { useState } from 'react';
 import { Form, Button, Alert, Row, Col } from 'react-bootstrap';
-import { FiDollarSign } from 'react-icons/fi';
+import { FiDollarSign, FiCalendar } from 'react-icons/fi';
 import { useCreatePayment } from '../hooks/usePayments';
 import type { CreatePaymentDTO, PaymentMethod } from '../api/paymentsApi';
+
+/** Returns today's date in YYYY-MM-DD format for input[type=date] */
+const getTodayDate = (): string => {
+  const today = new Date();
+  return today.toISOString().split('T')[0];
+};
 
 interface PaymentFormProps {
   saleId: number;
@@ -16,6 +22,7 @@ const emptyForm = (saleId: number): CreatePaymentDTO => ({
   amount: 0,
   paymentMethod: 'Cash',
   reference: '',
+  paymentDate: getTodayDate(),
 });
 
 export default function PaymentForm({ saleId, maxAmount = 0, onSuccess }: PaymentFormProps) {
@@ -45,12 +52,17 @@ export default function PaymentForm({ saleId, maxAmount = 0, onSuccess }: Paymen
     e.preventDefault();
     if (!validate()) return;
 
-    createMutation.mutate(
-      { ...form, saleId },
-      {
-        onSuccess: () => {
-          setForm(emptyForm(saleId));
-          setErrors({});
+    // Format paymentDate to ISO with time component for backend
+    const payload = {
+      ...form,
+      saleId,
+      paymentDate: form.paymentDate ? `${form.paymentDate}T00:00:00` : undefined,
+    };
+
+    createMutation.mutate(payload, {
+      onSuccess: () => {
+        setForm(emptyForm(saleId));
+        setErrors({});
           onSuccess?.();
         },
       }
@@ -112,8 +124,29 @@ export default function PaymentForm({ saleId, maxAmount = 0, onSuccess }: Paymen
           </Form.Group>
         </Col>
 
+        {/* Payment Date */}
+        <Col md={6}>
+          <Form.Group>
+            <Form.Label>Fecha del abono</Form.Label>
+            <div className="input-group">
+              <span className="input-group-text">
+                <FiCalendar />
+              </span>
+              <Form.Control
+                type="date"
+                value={form.paymentDate ?? getTodayDate()}
+                onChange={(e) => setForm({ ...form, paymentDate: e.target.value })}
+                max={getTodayDate()}
+              />
+            </div>
+            <Form.Text className="text-muted">
+              Por defecto es hoy. Modifica si el pago fue en otra fecha.
+            </Form.Text>
+          </Form.Group>
+        </Col>
+
         {/* Reference (required for Card / Transfer) */}
-        <Col md={12}>
+        <Col md={6}>
           <Form.Group>
             <Form.Label>
               Referencia{' '}
