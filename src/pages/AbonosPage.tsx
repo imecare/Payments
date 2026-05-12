@@ -46,7 +46,7 @@ export default function AbonosPage() {
     return c ? `${c.name} ${c.lastName}` : `Cliente #${customerId}`;
   };
 
-  const getSellerName = (sellerId: number | undefined) => {
+  const getSellerName = (sellerId: number | null | undefined) => {
     if (!sellerId) return 'Sin asignar';
     const s = sellers.find((x) => x.id === sellerId);
     return s ? `${s.name} ${s.lastName}` : `Vendedor #${sellerId}`;
