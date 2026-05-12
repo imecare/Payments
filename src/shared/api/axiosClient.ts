@@ -3,7 +3,7 @@ import axios, { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'ax
 // ============================================
 // API CONFIGURATION
 // ============================================
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/';
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? '';
 
 const axiosClient = axios.create({
   baseURL: API_BASE_URL,

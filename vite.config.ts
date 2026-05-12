@@ -13,14 +13,14 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://localhost:7147',
+        target: 'https://api-bcloud-shared-f4fdh9exezd8hgb4.westcentralus-01.azurewebsites.net',
         changeOrigin: true,
-        secure: false,
+        secure: true,
       },
       '/payment': {
-        target: 'https://localhost:7147',
+        target: 'https://api-bcloud-shared-f4fdh9exezd8hgb4.westcentralus-01.azurewebsites.net',
         changeOrigin: true,
-        secure: false,
+        secure: true,
       },
     },
   },
