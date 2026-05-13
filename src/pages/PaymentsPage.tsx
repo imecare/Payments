@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { 
   Container, Row, Col, Form, Button, Alert, Card, Badge,
   InputGroup, ProgressBar, Modal 
@@ -54,6 +54,9 @@ export default function PaymentsPage() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [lastPaymentInfo, setLastPaymentInfo] = useState<{ amount: number; remaining: number } | null>(null);
+  
+  // Ref para scroll en móvil
+  const paymentFormRef = useRef<HTMLDivElement>(null);
   
   // Get selected sale
   const selectedSale = useMemo(() => 
@@ -113,6 +116,13 @@ export default function PaymentsPage() {
       paymentDate: getTodayDate(),
     });
     setFormErrors({});
+    
+    // Scroll al formulario en móvil
+    setTimeout(() => {
+      if (paymentFormRef.current && window.innerWidth < 992) {
+        paymentFormRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
   }, []);
   
   const handlePayFullAmount = useCallback(() => {
@@ -280,7 +290,7 @@ export default function PaymentsPage() {
         </Col>
         
         {/* Right Panel - Payment Form */}
-        <Col lg={7} xl={8}>
+        <Col lg={7} xl={8} ref={paymentFormRef}>
           {!selectedSale ? (
             <Card className="h-100">
               <Card.Body className="d-flex flex-column align-items-center justify-content-center py-5">

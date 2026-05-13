@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { usePublicHistoryLookup } from '../features/sales/hooks/usePublicHistory';
 import { parsePublicHistoryError } from '../features/sales/api/publicHistoryApi';
 import type { Payment, Sale } from '../shared/types';
+import JumperLogo from '../components/JumperLogo';
 
 type TimelineItem = {
   id: string;
@@ -123,6 +124,32 @@ export default function ConsultaPage() {
     <Container className="py-4">
       <Row className="justify-content-center">
         <Col lg={10} xl={9}>
+          {/* Header con logo de empresa */}
+          {(companyCode || lookup.data?.companyName) && (
+            <Card className="border-0 shadow-sm mb-4 bg-dark text-white">
+              <Card.Body className="py-3">
+                <div className="d-flex align-items-center gap-3">
+                  {companyCode && (
+                    <img
+                      src={`/logos/${companyCode}.jpg`}
+                      alt={lookup.data?.companyName || 'Logo empresa'}
+                      style={{ maxHeight: '50px', maxWidth: '120px', objectFit: 'contain' }}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  )}
+                  <div>
+                    <h5 className="mb-0">{lookup.data?.companyName || 'Consulta de Historial'}</h5>
+                    {lookup.data?.companyName && (
+                      <small className="text-muted">Sistema de Gestión de Pagos</small>
+                    )}
+                  </div>
+                </div>
+              </Card.Body>
+            </Card>
+          )}
+
           <Button
             variant="outline-secondary"
             size="sm"
@@ -362,6 +389,12 @@ export default function ConsultaPage() {
               </Card>
             </>
           )}
+
+          {/* Footer con Jumper */}
+          <div className="text-center mt-4 pt-3 border-top">
+            <small className="text-muted d-block mb-1">Powered by</small>
+            <JumperLogo style={{ width: '100px', height: 'auto', opacity: 0.6 }} />
+          </div>
         </Col>
       </Row>
     </Container>

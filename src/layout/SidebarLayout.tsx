@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { useCompanyContext } from '../features/company/hooks/useCompanyContext';
 import { Container, Nav, Button, Badge } from 'react-bootstrap';
 import { 
   FiHome, FiShoppingCart, FiDollarSign, FiUsers, 
@@ -40,8 +41,13 @@ function NavItem({ to, icon, label, badge, isActive }: NavItemProps) {
 export default function SidebarLayout() {
   const [open, setOpen] = useState(false);
   const { user, logout, isSuperAdmin, isCommissionist } = useAuth();
+  const { data: companyData } = useCompanyContext();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const companyCode = companyData?.companyCode || companyData?.tenantId || '';
+  const companyName = companyData?.companyName || 'Mi Empresa';
+  const logoUrl = companyCode ? `/logos/${companyCode}.jpg` : null;
 
   const handleLogout = () => {
     logout();
@@ -79,8 +85,27 @@ export default function SidebarLayout() {
         }}
       >
         {/* Logo/Brand */}
-        <div className="p-3 border-bottom border-secondary d-flex justify-content-center">
-          <JumperLogo className="" style={{ width: '180px', height: 'auto' }} />
+        <div className="p-3 text-center bg-white">
+          {logoUrl && (
+            <img 
+              src={logoUrl} 
+              alt={companyName}
+              style={{ maxWidth: '180px', maxHeight: '60px', objectFit: 'contain' }}
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = 'none';
+                const fallback = document.getElementById('company-name-fallback');
+                if (fallback) fallback.style.display = 'block';
+              }}
+            />
+          )}
+          <h5 
+            id="company-name-fallback" 
+            className="text-dark mb-0" 
+            style={{ display: logoUrl ? 'none' : 'block' }}
+          >
+            {companyName}
+          </h5>
+          <small className="text-muted d-block mt-1">{companyName}</small>
         </div>
 
         {/* Navigation */}
@@ -137,6 +162,12 @@ export default function SidebarLayout() {
             <FiLogOut className="me-2" />
             Cerrar sesión
           </Button>
+
+          {/* Powered by Jumper */}
+          <div className="mt-3 pt-2 border-top border-secondary text-center">
+            <small className="text-muted d-block mb-1" style={{ fontSize: '10px' }}>Powered by</small>
+            <JumperLogo style={{ width: '80px', height: 'auto', opacity: 0.7 }} />
+          </div>
         </div>
       </aside>
 
@@ -151,7 +182,15 @@ export default function SidebarLayout() {
 
       {/* Mobile Header */}
       <header className="d-md-none bg-dark text-white p-3 d-flex justify-content-between align-items-center sticky-top">
-        <JumperLogo className="" style={{ width: '140px', height: 'auto' }} />
+        {logoUrl ? (
+          <img 
+            src={logoUrl} 
+            alt={companyName}
+            style={{ maxWidth: '140px', maxHeight: '40px', objectFit: 'contain' }}
+          />
+        ) : (
+          <span className="fw-bold">{companyName}</span>
+        )}
         <Button
           variant="outline-light"
           size="sm"
@@ -164,7 +203,7 @@ export default function SidebarLayout() {
 
       {/* Main Content */}
       <main 
-        className="flex-grow-1 bg-light"
+        className="flex-grow-1 bg-white"
         style={{ 
           marginLeft: '0',
           minHeight: '100vh',

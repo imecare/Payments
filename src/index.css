@@ -1,6 +1,15 @@
 body {
   font-family: 'Inter', sans-serif;
-  background-color: #f8f9fa;
+  background-color: #ffffff;
+}
+
+/* Cards con fondo gris claro */
+.card {
+  background-color: #f8f9fa !important;
+}
+
+.card-header {
+  background-color: #f1f3f5 !important;
 }
 
 .bg-dark {
