@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, Badge, Button, Card, Col, Container, Form, Row, Table } from 'react-bootstrap';
 import { FiAlertTriangle, FiArrowLeft, FiCheckCircle, FiClock, FiDollarSign, FiInfo, FiSearch, FiShoppingCart } from 'react-icons/fi';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { usePublicHistoryLookup } from '../features/sales/hooks/usePublicHistory';
 import { parsePublicHistoryError } from '../features/sales/api/publicHistoryApi';
 import type { Payment, Sale } from '../shared/types';
@@ -20,11 +20,19 @@ type TimelineItem = {
 
 export default function ConsultaPage() {
   const navigate = useNavigate();
-  const [phone, setPhone] = useState('');
-  const [rfc, setRfc] = useState('');
-  const [companyCode, setCompanyCode] = useState('');
+  const [searchParams] = useSearchParams();
+  
+  // Leer parámetros de la URL
+  const urlPhone = searchParams.get('phone') || searchParams.get('tel') || '';
+  const urlRfc = searchParams.get('rfc') || '';
+  const urlCompanyCode = searchParams.get('code') || searchParams.get('empresa') || '';
+  
+  const [phone, setPhone] = useState(urlPhone);
+  const [rfc, setRfc] = useState(urlRfc);
+  const [companyCode, setCompanyCode] = useState(urlCompanyCode);
   const [historyFilter, setHistoryFilter] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [autoSearchDone, setAutoSearchDone] = useState(false);
 
   const lookup = usePublicHistoryLookup();
 
@@ -36,6 +44,19 @@ export default function ConsultaPage() {
     lookup.isSuccess &&
     (lookup.data?.statusCode === 'CUSTOMER_WITHOUT_MOVEMENTS' ||
       (lookup.data?.hasMovements === false && sales.length === 0));
+
+  // Auto-búsqueda si vienen parámetros en la URL
+  useEffect(() => {
+    if (!autoSearchDone && urlPhone && urlRfc && urlCompanyCode) {
+      setAutoSearchDone(true);
+      setSubmitted(true);
+      lookup.mutate({
+        phone: urlPhone.trim(),
+        rfc: urlRfc.trim().toUpperCase(),
+        companyCode: urlCompanyCode.trim(),
+      });
+    }
+  }, [urlPhone, urlRfc, urlCompanyCode, autoSearchDone, lookup]);
 
   const timeline = useMemo(() => {
     const items: TimelineItem[] = [];

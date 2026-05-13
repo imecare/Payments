@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react';
 import {
   Container, Row, Col, Card, Table, Modal, Badge,
-  Button, InputGroup, Form,
+  Button, InputGroup, Form, OverlayTrigger, Tooltip,
 } from 'react-bootstrap';
-import { FiSearch, FiDollarSign, FiCheckCircle, FiClock, FiPlus, FiFilter } from 'react-icons/fi';
+import { FiSearch, FiDollarSign, FiCheckCircle, FiClock, FiPlus, FiFilter, FiCircle } from 'react-icons/fi';
 import { useSales } from '../features/sales/hooks/useSales';
 import { useCustomers } from '../features/customers/hooks/useCustomers';
 import { useSellers } from '../features/sellers/hooks/useSellers';
@@ -12,13 +12,136 @@ import ErrorAlert from '../components/ErrorAlert';
 import StatCard from '../components/StatCard';
 import PaymentForm from '../features/payments/components/PaymentForm';
 import PaymentTable from '../features/payments/components/PaymentTable';
-import type { Sale } from '../shared/types';
+import type { Sale, Payment } from '../shared/types';
 
 // ============================================
 // TYPES
 // ============================================
 type Filter = 'all' | 'pending' | 'paid';
 type SortBy = 'date-desc' | 'date-asc' | 'seller-asc' | 'seller-desc';
+type PaymentStatus = 'green' | 'orange' | 'red' | 'none';
+
+// ============================================
+// HELPER: Sistema de Semaforización por Quincenas
+// ============================================
+interface QuincenaRange {
+  start: Date;
+  end: Date;
+  criticalDay: number; // Día crítico después del cual se vuelve naranja
+}
+
+function getQuincenaRanges(today: Date): { current: QuincenaRange; previous: QuincenaRange } {
+  const day = today.getDate();
+  const month = today.getMonth();
+  const year = today.getFullYear();
+
+  let current: QuincenaRange;
+  let previous: QuincenaRange;
+
+  if (day >= 13 && day <= 25) {
+    // Estamos en la quincena del 15 (período 13-25)
+    current = {
+      start: new Date(year, month, 13, 0, 0, 0),
+      end: new Date(year, month, 25, 23, 59, 59),
+      criticalDay: 15,
+    };
+    // Quincena anterior: del 29 del mes pasado al 12 del mes actual
+    previous = {
+      start: new Date(year, month - 1, 29, 0, 0, 0),
+      end: new Date(year, month, 12, 23, 59, 59),
+      criticalDay: 1,
+    };
+  } else if (day >= 29 || day <= 12) {
+    // Estamos en la quincena del 30 (período 29 al 12 del siguiente mes)
+    if (day >= 29) {
+      // Estamos en el mismo mes (días 29-31)
+      current = {
+        start: new Date(year, month, 29, 0, 0, 0),
+        end: new Date(year, month + 1, 12, 23, 59, 59),
+        criticalDay: 1,
+      };
+      // Quincena anterior: 13-25 del mes actual
+      previous = {
+        start: new Date(year, month, 13, 0, 0, 0),
+        end: new Date(year, month, 25, 23, 59, 59),
+        criticalDay: 15,
+      };
+    } else {
+      // Estamos en días 1-12 del mes (parte final de la quincena del 30)
+      current = {
+        start: new Date(year, month - 1, 29, 0, 0, 0),
+        end: new Date(year, month, 12, 23, 59, 59),
+        criticalDay: 1,
+      };
+      // Quincena anterior: 13-25 del mes pasado
+      previous = {
+        start: new Date(year, month - 1, 13, 0, 0, 0),
+        end: new Date(year, month - 1, 25, 23, 59, 59),
+        criticalDay: 15,
+      };
+    }
+  } else {
+    // Días 26-28: período de gracia/transición, consideramos quincena del 15 como anterior
+    current = {
+      start: new Date(year, month, 13, 0, 0, 0),
+      end: new Date(year, month, 25, 23, 59, 59),
+      criticalDay: 15,
+    };
+    previous = {
+      start: new Date(year, month - 1, 29, 0, 0, 0),
+      end: new Date(year, month, 12, 23, 59, 59),
+      criticalDay: 1,
+    };
+  }
+
+  return { current, previous };
+}
+
+function getPaymentStatusForSale(sale: Sale, today: Date): { status: PaymentStatus; tooltip: string } {
+  // Si la venta ya está liquidada, no necesita indicador
+  if (sale.isPaid) {
+    return { status: 'none', tooltip: 'Venta liquidada' };
+  }
+
+  const payments = (sale.payments ?? sale.payment ?? []).filter((p) => p.paymentTypeId === 2);
+  const { current, previous } = getQuincenaRanges(today);
+  const day = today.getDate();
+
+  // Verificar si hay abono en la quincena actual
+  const hasPaymentInCurrent = payments.some((p) => {
+    const paymentDate = new Date(p.date);
+    return paymentDate >= current.start && paymentDate <= current.end;
+  });
+
+  // Verificar si hay abono en la quincena anterior
+  const hasPaymentInPrevious = payments.some((p) => {
+    const paymentDate = new Date(p.date);
+    return paymentDate >= previous.start && paymentDate <= previous.end;
+  });
+
+  // VERDE: Abonó en la quincena actual
+  if (hasPaymentInCurrent) {
+    return { status: 'green', tooltip: 'Abono al corriente en esta quincena' };
+  }
+
+  // ROJO: No abonó en toda la quincena anterior (y tampoco en la actual)
+  if (!hasPaymentInPrevious) {
+    return { status: 'red', tooltip: 'Sin abono en la quincena anterior' };
+  }
+
+  // NARANJA: Ya pasó el día crítico y no ha abonado en esta quincena
+  // Para quincena del 30: día crítico es 1
+  // Para quincena del 15: día crítico es 15
+  const isPastCriticalDay = day > current.criticalDay || 
+    (current.criticalDay === 1 && day >= 1 && day <= 12);
+  
+  if (isPastCriticalDay) {
+    return { status: 'orange', tooltip: 'Abono pendiente en esta quincena' };
+  }
+
+  // Aún está en tiempo (antes del día crítico)
+  return { status: 'green', tooltip: 'Dentro del período de pago' };
+}
 
 // ============================================
 // PAGE
@@ -244,6 +367,7 @@ export default function AbonosPage() {
           <Table hover responsive className="mb-0">
             <thead className="table-light">
               <tr>
+                <th style={{ width: '40px' }}></th>
                 <th>#</th>
                 <th>Cliente</th>
                 <th>Vendedor</th>
@@ -257,7 +381,7 @@ export default function AbonosPage() {
             <tbody>
               {filteredSales.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-4 text-muted">
+                  <td colSpan={9} className="text-center py-4 text-muted">
                     No se encontraron ventas.
                   </td>
                 </tr>
@@ -266,8 +390,33 @@ export default function AbonosPage() {
                   const totalAbonado = (sale.payments ?? sale.payment ?? [])
                     .filter((p) => p.paymentTypeId === 2)
                     .reduce((acc, p) => acc + p.amount, 0);
+                  const { status, tooltip } = getPaymentStatusForSale(sale, new Date());
+                  
+                  const statusColors: Record<PaymentStatus, string> = {
+                    green: '#28a745',
+                    orange: '#fd7e14',
+                    red: '#dc3545',
+                    none: 'transparent',
+                  };
+
                   return (
                     <tr key={sale.id}>
+                      <td className="text-center align-middle">
+                        {status !== 'none' && (
+                          <OverlayTrigger
+                            placement="top"
+                            overlay={<Tooltip>{tooltip}</Tooltip>}
+                          >
+                            <span>
+                              <FiCircle 
+                                size={12} 
+                                fill={statusColors[status]} 
+                                color={statusColors[status]}
+                              />
+                            </span>
+                          </OverlayTrigger>
+                        )}
+                      </td>
                       <td className="text-muted">{sale.id}</td>
                       <td>{getCustomerName(sale.customerId)}</td>
                       <td className="text-muted">{getSellerName(sale.sellerId)}</td>
