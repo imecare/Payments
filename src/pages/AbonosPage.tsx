@@ -248,6 +248,7 @@ export default function AbonosPage() {
                 <th>Cliente</th>
                 <th>Vendedor</th>
                 <th>Total</th>
+                <th>Abonado</th>
                 <th>Estado</th>
                 <th>Fecha</th>
                 <th></th>
@@ -256,37 +257,43 @@ export default function AbonosPage() {
             <tbody>
               {filteredSales.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-4 text-muted">
+                  <td colSpan={8} className="text-center py-4 text-muted">
                     No se encontraron ventas.
                   </td>
                 </tr>
               ) : (
-                filteredSales.map((sale) => (
-                  <tr key={sale.id}>
-                    <td className="text-muted">{sale.id}</td>
-                    <td>{getCustomerName(sale.customerId)}</td>
-                    <td className="text-muted">{getSellerName(sale.sellerId)}</td>
-                    <td className="fw-semibold">${sale.totalAmount.toLocaleString()}</td>
-                    <td>
-                      <Badge bg={sale.isPaid ? 'success' : 'warning'}>
-                        {sale.isPaid ? 'Liquidada' : 'Pendiente'}
-                      </Badge>
-                    </td>
-                    <td className="text-muted">
-                      {new Date(sale.date).toLocaleDateString('es-MX')}
-                    </td>
-                    <td>
-                      <Button
-                        size="sm"
-                        variant="outline-primary"
-                        onClick={() => openModal(sale)}
-                      >
-                        <FiPlus className="me-1" />
-                        Abonos
-                      </Button>
-                    </td>
-                  </tr>
-                ))
+                filteredSales.map((sale) => {
+                  const totalAbonado = (sale.payments ?? sale.payment ?? [])
+                    .filter((p) => p.paymentTypeId === 2)
+                    .reduce((acc, p) => acc + p.amount, 0);
+                  return (
+                    <tr key={sale.id}>
+                      <td className="text-muted">{sale.id}</td>
+                      <td>{getCustomerName(sale.customerId)}</td>
+                      <td className="text-muted">{getSellerName(sale.sellerId)}</td>
+                      <td className="fw-semibold">${sale.totalAmount.toLocaleString()}</td>
+                      <td className="text-success fw-semibold">${totalAbonado.toLocaleString()}</td>
+                      <td>
+                        <Badge bg={sale.isPaid ? 'success' : 'warning'}>
+                          {sale.isPaid ? 'Liquidada' : 'Pendiente'}
+                        </Badge>
+                      </td>
+                      <td className="text-muted">
+                        {new Date(sale.date).toLocaleDateString('es-MX')}
+                      </td>
+                      <td>
+                        <Button
+                          size="sm"
+                          variant="outline-primary"
+                          onClick={() => openModal(sale)}
+                        >
+                          <FiPlus className="me-1" />
+                          Abonos
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </Table>

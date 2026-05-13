@@ -413,6 +413,7 @@ export default function SalesPage() {
               <th>Vendedor</th>
               <th>Descripcion</th>
               <th className="text-end">Total</th>
+              <th className="text-end">Abonado</th>
               <th className="text-end">Comisión</th>
               <th>Estado</th>
               <th style={{ width: '100px' }}>Acciones</th>
@@ -421,12 +422,16 @@ export default function SalesPage() {
           <tbody>
             {filteredSales.length === 0 ? (
               <tr>
-                <td colSpan={9} className="text-center py-4 text-muted">
+                <td colSpan={10} className="text-center py-4 text-muted">
                   No hay ventas que mostrar
                 </td>
               </tr>
             ) : (
-              filteredSales.map((sale) => (
+              filteredSales.map((sale) => {
+                const totalAbonado = (sale.payments ?? sale.payment ?? [])
+                  .filter((p) => p.paymentTypeId === 2)
+                  .reduce((acc, p) => acc + p.amount, 0);
+                return (
                 <tr key={sale.id}>
                   <td>
                     <Badge bg="light" text="dark">#{sale.id}</Badge>
@@ -440,6 +445,9 @@ export default function SalesPage() {
                   </td>
                   <td className="text-end fw-bold">
                     ${sale.totalAmount.toLocaleString()}
+                  </td>
+                  <td className="text-end text-success fw-semibold">
+                    ${totalAbonado.toLocaleString()}
                   </td>
                   <td className="text-end">
                     ${sale.commissionAmount.toLocaleString()}
@@ -481,7 +489,8 @@ export default function SalesPage() {
                     </Button>
                   </td>
                 </tr>
-              ))
+                );
+              })
             )}
           </tbody>
         </Table>

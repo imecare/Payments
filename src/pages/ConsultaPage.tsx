@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Alert, Badge, Button, Card, Col, Container, Form, Row, Table } from 'react-bootstrap';
-import { FiAlertTriangle, FiCheckCircle, FiClock, FiDollarSign, FiInfo, FiSearch, FiShoppingCart } from 'react-icons/fi';
+import { FiAlertTriangle, FiArrowLeft, FiCheckCircle, FiClock, FiDollarSign, FiInfo, FiSearch, FiShoppingCart } from 'react-icons/fi';
+import { useNavigate } from 'react-router-dom';
 import { usePublicHistoryLookup } from '../features/sales/hooks/usePublicHistory';
 import { parsePublicHistoryError } from '../features/sales/api/publicHistoryApi';
 import type { Payment, Sale } from '../shared/types';
@@ -17,6 +18,7 @@ type TimelineItem = {
 };
 
 export default function ConsultaPage() {
+  const navigate = useNavigate();
   const [phone, setPhone] = useState('');
   const [rfc, setRfc] = useState('');
   const [companyCode, setCompanyCode] = useState('');
@@ -47,17 +49,20 @@ export default function ConsultaPage() {
         isPaid: sale.isPaid,
       });
 
-      (sale.payments ?? sale.payment ?? []).forEach((payment: Payment) => {
-        items.push({
-          id: `payment-${payment.id}`,
-          type: 'payment',
-          date: payment.date,
-          saleId: sale.id,
-          amount: payment.amount,
-          paymentMethod: payment.paymentMethod,
-          reference: payment.reference,
+      // Solo mostrar pagos de tipo abono (paymentTypeId = 2)
+      (sale.payments ?? sale.payment ?? [])
+        .filter((payment: Payment) => payment.paymentTypeId === 2)
+        .forEach((payment: Payment) => {
+          items.push({
+            id: `payment-${payment.id}`,
+            type: 'payment',
+            date: payment.date,
+            saleId: sale.id,
+            amount: payment.amount,
+            paymentMethod: payment.paymentMethod,
+            reference: payment.reference,
+          });
         });
-      });
     });
 
     return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -86,8 +91,10 @@ export default function ConsultaPage() {
 
   const totals = useMemo(() => {
     const totalSales = sales.reduce((acc, s) => acc + s.totalAmount, 0);
+    // Solo sumar pagos de tipo abono (paymentTypeId = 2)
     const totalPayments = sales
       .flatMap((s) => s.payments ?? s.payment ?? [])
+      .filter((p) => p.paymentTypeId === 2)
       .reduce((acc, p) => acc + p.amount, 0);
 
     return {
@@ -116,6 +123,15 @@ export default function ConsultaPage() {
     <Container className="py-4">
       <Row className="justify-content-center">
         <Col lg={10} xl={9}>
+          <Button
+            variant="outline-secondary"
+            size="sm"
+            className="mb-3"
+            onClick={() => navigate('/login')}
+          >
+            <FiArrowLeft className="me-1" />
+            Volver al inicio
+          </Button>
           <Card className="border-0 shadow-sm mb-4">
             <Card.Body className="p-4">
               <h2 className="mb-1">Consulta de Historial</h2>
@@ -247,7 +263,7 @@ export default function ConsultaPage() {
 
               <Card className="border-0 shadow-sm">
                 <Card.Header className="bg-white py-3">
-                  <strong>Historial (ordenado por fecha)</strong>
+                  <strong>Historial de {lookup.data?.customerName || 'Cliente'}</strong>
                 </Card.Header>
                 <Card.Body className="p-0">
                   <div className="p-3 border-bottom">
