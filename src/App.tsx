@@ -112,6 +112,8 @@ export default function App() {
                   <Route path="/forbidden" element={<ForbiddenPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                 </Route>
+                {/* Cualquier otra ruta redirige al login */}
+                <Route path="*" element={<Navigate to="/login" replace />} />
               </Routes>
             </Suspense>
           </AuthProvider>

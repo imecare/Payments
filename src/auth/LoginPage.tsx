@@ -4,6 +4,7 @@ import { useAuth } from './AuthContext';
 import axiosClient from '../shared/api/axiosClient';
 import { Form, Button, Container, Row, Col, Alert, Spinner } from 'react-bootstrap';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
+import { FiRefreshCw } from 'react-icons/fi';
 import JumperLogo from '../components/JumperLogo';
 
 
@@ -11,6 +12,7 @@ export default function LoginPage() {
   const [credentials, setCredentials] = useState({ email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isConnectionError, setIsConnectionError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -62,6 +64,7 @@ export default function LoginPage() {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
+    setIsConnectionError(false);
     try {
       const { data } = await axiosClient.post<LoginResponse>('/api/Auth/login', credentials);
       login({
@@ -73,7 +76,29 @@ export default function LoginPage() {
       navigate(getLandingPath(data));
     } catch (e: any) {
       console.error(e);
-      setError('Credenciales inválidas: ' + (e.response?.data?.message || e.message || e.toString()));
+      
+      // Detectar errores de conexión/servidor
+      const errorMessage = e.response?.data?.message || e.message || '';
+      const isTransientError = 
+        errorMessage.includes('transient') || 
+        errorMessage.includes('EnableRetryOnFailure') ||
+        errorMessage.includes('SqlServer') ||
+        errorMessage.includes('connection') ||
+        e.code === 'ECONNABORTED' ||
+        !e.response;
+      
+      if (isTransientError) {
+        setError('Error de conexión con el servidor. Por favor, intenta de nuevo en unos segundos.');
+        setIsConnectionError(true);
+      } else if (e.response?.status === 401 || e.response?.status === 400) {
+        setError('Credenciales inválidas. Verifica tu email y contraseña.');
+      } else if (e.response?.status >= 500) {
+        setError('Error en el servidor. Por favor, intenta más tarde.');
+        setIsConnectionError(true);
+      } else {
+        setError('No se pudo iniciar sesión. Intenta de nuevo.');
+      }
+      
       setIsLoading(false);
     }
   };
@@ -137,7 +162,23 @@ export default function LoginPage() {
             <small className="text-muted">¿Eres cliente?</small>{' '}
             <Link to="/consulta">Consultar historial sin login</Link>
           </div>
-          {error && <Alert variant="danger" className="mt-3">{error}</Alert>}
+          {error && (
+            <Alert variant="danger" className="mt-3">
+              {error}
+              {isConnectionError && (
+                <Button 
+                  variant="outline-danger" 
+                  size="sm" 
+                  className="ms-2"
+                  onClick={handleSubmit as any}
+                  disabled={isLoading}
+                >
+                  <FiRefreshCw className="me-1" />
+                  Reintentar
+                </Button>
+              )}
+            </Alert>
+          )}
         </Col>
       </Row>
     </Container>
