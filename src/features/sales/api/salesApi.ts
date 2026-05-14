@@ -70,4 +70,10 @@ export const salesApi = {
   markCommissionPaid: async (id: number, paid = true, note?: string): Promise<void> => {
     await apiClient.patch(`/payment/PaySales/${id}/commission-paid`, { paid, note });
   },
+
+  /** Delete a sale (SuperAdmin only) */
+  delete: async (id: number, reason?: string): Promise<void> => {
+    const params = reason ? { reason } : undefined;
+    await apiClient.delete(`/payment/PaySales/${id}`, { params });
+  },
 };

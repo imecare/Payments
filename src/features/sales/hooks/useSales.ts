@@ -93,6 +93,19 @@ export function useMarkCommissionPaid() {
   });
 }
 
+export function useDeleteSale() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: number; reason?: string }) =>
+      salesApi.delete(id, reason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: saleKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+  });
+}
+
 // ============================================
 // COMPUTED HELPERS — re-exported from usePayments for backward compat
 // ============================================

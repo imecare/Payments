@@ -40,21 +40,39 @@ export default function ClientsPage() {
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [filterSellerId, setFilterSellerId] = useState<number | null>(null);
 
   const companyCode = companyData?.companyCode || companyData?.tenantId || '';
   const baseUrl = window.location.origin;
 
+  // Obtener vendedores únicos de los clientes
+  const customerSellers = useMemo(() => {
+    const sellerIds = [...new Set(customers.map(c => c.sellerId).filter(Boolean))] as number[];
+    return sellers.filter(s => sellerIds.includes(s.id));
+  }, [customers, sellers]);
+
   const filteredCustomers = useMemo(() => {
-    if (!searchTerm.trim()) return customers;
-    const term = searchTerm.toLowerCase();
-    return customers.filter(
-      (c) =>
-        c.name.toLowerCase().includes(term) ||
-        c.lastName.toLowerCase().includes(term) ||
-        c.phone.includes(term) ||
-        c.rfc.toLowerCase().includes(term)
-    );
-  }, [customers, searchTerm]);
+    let result = customers;
+    
+    // Filtrar por vendedor
+    if (filterSellerId !== null) {
+      result = result.filter((c) => c.sellerId === filterSellerId);
+    }
+    
+    // Filtrar por búsqueda
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      result = result.filter(
+        (c) =>
+          c.name.toLowerCase().includes(term) ||
+          c.lastName.toLowerCase().includes(term) ||
+          c.phone.includes(term) ||
+          c.rfc.toLowerCase().includes(term)
+      );
+    }
+    
+    return result;
+  }, [customers, searchTerm, filterSellerId]);
 
   const getSellerName = useCallback((sellerId: number) => {
     const seller = sellers.find(s => s.id === sellerId);
@@ -214,8 +232,8 @@ export default function ClientsPage() {
       </div>
 
       {/* Search and Stats */}
-      <Row className="mb-4">
-        <Col md={6} lg={4}>
+      <Row className="mb-4 g-2">
+        <Col md={4}>
           <InputGroup>
             <InputGroup.Text>
               <FiSearch />
@@ -229,7 +247,22 @@ export default function ClientsPage() {
             />
           </InputGroup>
         </Col>
-        <Col md={6} lg={8} className="d-flex align-items-center justify-content-md-end mt-3 mt-md-0">
+        {customerSellers.length > 1 && (
+          <Col md={3}>
+            <Form.Select
+              value={filterSellerId ?? ''}
+              onChange={(e) => setFilterSellerId(e.target.value ? Number(e.target.value) : null)}
+            >
+              <option value="">Todos los vendedores</option>
+              {customerSellers.map((seller) => (
+                <option key={seller.id} value={seller.id}>
+                  {seller.name} {seller.lastName}
+                </option>
+              ))}
+            </Form.Select>
+          </Col>
+        )}
+        <Col className="d-flex align-items-center justify-content-md-end mt-2 mt-md-0">
           <Badge bg="secondary" className="fs-6">
             {filteredCustomers.length} cliente{filteredCustomers.length !== 1 ? 's' : ''}
           </Badge>

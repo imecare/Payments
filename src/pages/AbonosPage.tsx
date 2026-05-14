@@ -224,17 +224,23 @@ export default function AbonosPage() {
     });
   }, [sales, filter, searchTerm, customers, sortBy, filterSellerId, sellers]);
 
+  // Ventas filtradas por vendedor (para stats)
+  const salesBySellerFilter = useMemo(() => {
+    if (filterSellerId === null) return sales;
+    return sales.filter(s => s.sellerId === filterSellerId);
+  }, [sales, filterSellerId]);
+
   const stats = useMemo(() => {
-    const total        = sales.reduce((acc, s) => acc + s.totalAmount, 0);
-    const paid         = sales.filter((s) => s.isPaid).length;
-    const pending      = sales.filter((s) => !s.isPaid).length;
-    const collected    = sales
+    const total        = salesBySellerFilter.reduce((acc, s) => acc + s.totalAmount, 0);
+    const paid         = salesBySellerFilter.filter((s) => s.isPaid).length;
+    const pending      = salesBySellerFilter.filter((s) => !s.isPaid).length;
+    const collected    = salesBySellerFilter
       .flatMap((s) => s.payments ?? s.payment ?? [])
       .filter((p) => p.paymentTypeId === 2)
       .reduce((acc, p) => acc + p.amount, 0);
 
     return { total, paid, pending, collected };
-  }, [sales]);
+  }, [salesBySellerFilter]);
 
   // ----------------------------------------
   // Handlers

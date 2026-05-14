@@ -3,7 +3,7 @@ import {
   Button, Table, Modal, Form, Row, Col, Badge, InputGroup, 
   ProgressBar, Card, Alert 
 } from 'react-bootstrap';
-import { FiSearch, FiPlus, FiEdit2, FiDollarSign, FiCheckCircle, FiClock, FiTrendingUp, FiPercent, FiEye, FiCalendar } from 'react-icons/fi';
+import { FiSearch, FiPlus, FiEdit2, FiDollarSign, FiCheckCircle, FiClock, FiTrendingUp, FiPercent, FiEye, FiCalendar, FiTrash2 } from 'react-icons/fi';
 
 /** Returns today's date in YYYY-MM-DD format for input[type=date] */
 const getTodayDate = (): string => {
@@ -15,6 +15,7 @@ import {
   useCreateSale,
   useUpdateSale,
   useMarkCommissionPaid,
+  useDeleteSale,
 } from '../features/sales/hooks/useSales';
 import type { Sale, CreateSaleDTO } from '../shared/types';
 import { useCustomers } from '../features/customers/hooks/useCustomers';
@@ -48,6 +49,7 @@ export default function SalesPage() {
   const createMutation = useCreateSale();
   const updateMutation = useUpdateSale();
   const markCommissionPaidMutation = useMarkCommissionPaid();
+  const deleteMutation = useDeleteSale();
 
   // UI State
   const [showModal, setShowModal] = useState(false);
@@ -61,24 +63,36 @@ export default function SalesPage() {
   const [sortBy, setSortBy] = useState<'date-desc' | 'date-asc' | 'seller-asc' | 'seller-desc'>('date-desc');
   const [filterSellerId, setFilterSellerId] = useState<number | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  
+  // Delete modal state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  // Computed values
+  // Ventas filtradas por vendedor (para stats)
+  const salesBySellerFilter = useMemo(() => {
+    if (filterSellerId === null) return sales;
+    return sales.filter(s => s.sellerId === filterSellerId);
+  }, [sales, filterSellerId]);
+
+  // Computed values - ahora usa ventas filtradas por vendedor
   const stats = useMemo(() => {
-    const totalSales = sales.reduce((sum, s) => sum + s.totalAmount, 0);
-    const paidSales = sales.filter(s => s.isPaid);
-    const pendingCommissions = sales.filter(s => s.isPaid && !s.isCommissionPaid);
+    const totalSales = salesBySellerFilter.reduce((sum, s) => sum + s.totalAmount, 0);
+    const paidSales = salesBySellerFilter.filter(s => s.isPaid);
+    const pendingCommissions = salesBySellerFilter.filter(s => s.isPaid && !s.isCommissionPaid);
     const totalCommissionsPending = pendingCommissions.reduce((sum, s) => sum + s.commissionAmount, 0);
     // Use server-computed paidAmount (sum of paymentTypeId=2) per sale
-    const totalPaid = sales.reduce((sum, s) => sum + (s.paidAmount ?? 0), 0);
+    const totalPaid = salesBySellerFilter.reduce((sum, s) => sum + (s.paidAmount ?? 0), 0);
 
     return {
       totalSales,
       totalPaid,
-      pendingCount: sales.filter(s => !s.isPaid).length,
+      pendingCount: salesBySellerFilter.filter(s => !s.isPaid).length,
       pendingCommissionsCount: pendingCommissions.length,
       totalCommissionsPending,
     };
-  }, [sales]);
+  }, [salesBySellerFilter]);
 
   // Get customer/seller names — prefer flat DTO fields, fallback to local lists
   const getCustomerName = useCallback((sale: Sale) => {
@@ -198,6 +212,43 @@ export default function SalesPage() {
     setSelectedSale(sale);
     setShowDetailModal(true);
   }, []);
+
+  const handleOpenDeleteModal = useCallback((sale: Sale) => {
+    // Verificar si tiene abonos (paymentTypeId = 2)
+    const abonos = (sale.payments ?? sale.payment ?? []).filter(p => p.paymentTypeId === 2);
+    if (abonos.length > 0) {
+      setDeleteError('No se puede eliminar una venta que tiene abonos registrados. Elimine los abonos primero.');
+      setSaleToDelete(sale);
+      setShowDeleteModal(true);
+      return;
+    }
+    setDeleteError(null);
+    setSaleToDelete(sale);
+    setDeleteReason('');
+    setShowDeleteModal(true);
+  }, []);
+
+  const handleCloseDeleteModal = useCallback(() => {
+    setShowDeleteModal(false);
+    setSaleToDelete(null);
+    setDeleteReason('');
+    setDeleteError(null);
+  }, []);
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!saleToDelete) return;
+    
+    try {
+      await deleteMutation.mutateAsync({ 
+        id: saleToDelete.id, 
+        reason: deleteReason.trim() || undefined 
+      });
+      handleCloseDeleteModal();
+    } catch (err: any) {
+      const errorMsg = err.response?.data?.message || err.message || 'Error al eliminar la venta';
+      setDeleteError(errorMsg);
+    }
+  }, [saleToDelete, deleteReason, deleteMutation, handleCloseDeleteModal]);
 
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
@@ -416,7 +467,7 @@ export default function SalesPage() {
               <th className="text-end">Abonado</th>
               <th className="text-end">Comisión</th>
               <th>Estado</th>
-              <th style={{ width: '100px' }}>Acciones</th>
+              <th style={{ width: '130px' }}>Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -487,6 +538,17 @@ export default function SalesPage() {
                     >
                       <FiEye />
                     </Button>
+                    {isSuperAdmin && (
+                      <Button 
+                        size="sm" 
+                        variant="outline-danger"
+                        className="ms-1"
+                        onClick={() => handleOpenDeleteModal(sale)}
+                        aria-label="Eliminar venta"
+                      >
+                        <FiTrash2 />
+                      </Button>
+                    )}
                   </td>
                 </tr>
                 );
@@ -710,6 +772,60 @@ export default function SalesPage() {
       {updateMutation.isError && (
         <ErrorAlert error={updateMutation.error} title="Error al actualizar venta" />
       )}
+
+      {/* Delete Sale Modal */}
+      <Modal show={showDeleteModal} onHide={handleCloseDeleteModal} centered>
+        <Modal.Header closeButton>
+          <Modal.Title className="text-danger">
+            <FiTrash2 className="me-2" />
+            Eliminar Venta
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {deleteError ? (
+            <Alert variant="danger" className="mb-3">
+              {deleteError}
+            </Alert>
+          ) : (
+            <>
+              <p>
+                ¿Estás seguro de que deseas eliminar la venta <strong>#{saleToDelete?.id}</strong>?
+              </p>
+              <p className="text-muted small">
+                Cliente: {saleToDelete && getCustomerName(saleToDelete)}<br />
+                Monto: ${saleToDelete?.totalAmount.toLocaleString()}
+              </p>
+              <Form.Group className="mb-3">
+                <Form.Label>Razón de eliminación (opcional)</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  rows={2}
+                  value={deleteReason}
+                  onChange={(e) => setDeleteReason(e.target.value)}
+                  placeholder="Ej: Venta duplicada, error de captura..."
+                />
+              </Form.Group>
+              <Alert variant="warning" className="mb-0">
+                <strong>Atención:</strong> Esta acción no se puede deshacer.
+              </Alert>
+            </>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={handleCloseDeleteModal}>
+            Cancelar
+          </Button>
+          {!deleteError && (
+            <Button 
+              variant="danger" 
+              onClick={handleConfirmDelete}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? 'Eliminando...' : 'Eliminar Venta'}
+            </Button>
+          )}
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 }
