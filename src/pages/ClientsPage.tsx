@@ -535,55 +535,65 @@ export default function ClientsPage() {
                   Este cliente no tiene movimientos registrados.
                 </Alert>
               ) : (
-                <Table hover responsive className="mb-0 table-responsive-cards">
-                  <thead className="table-light">
-                    <tr>
-                      <th>Fecha</th>
-                      <th>Tipo</th>
-                      <th>Venta</th>
-                      <th>Monto</th>
-                      <th>Detalle</th>
-                      <th>Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {historyTimeline.map((item) => (
-                      <tr key={item.id}>
-                        <td data-label="Fecha">{new Date(item.date).toLocaleDateString('es-MX')}</td>
-                        <td data-label="Tipo">
+                <ResponsiveTable
+                  data={historyTimeline}
+                  keyExtractor={(item) => item.id}
+                  striped={false}
+                  bordered={false}
+                  columns={[
+                    {
+                      key: 'tipo',
+                      header: 'Tipo / Fecha',
+                      isCardTitle: true,
+                      render: (item) => (
+                        <span>
                           {item.type === 'sale' ? (
-                            <Badge bg="primary"><FiShoppingCart className="me-1" />Compra</Badge>
+                            <Badge bg="primary" className="me-2"><FiShoppingCart className="me-1" />Compra</Badge>
                           ) : (
-                            <Badge bg="success"><FiDollarSign className="me-1" />Abono</Badge>
+                            <Badge bg="success" className="me-2"><FiDollarSign className="me-1" />Abono</Badge>
                           )}
-                        </td>
-                        <td data-label="Venta">#{item.saleId}</td>
-                        <td data-label="Monto" className="fw-semibold">${item.amount.toLocaleString()}</td>
-                        <td data-label="Detalle">
-                          {item.type === 'sale' ? (
-                            <span className="text-muted">
-                              {item.description || 'Registro de venta'}
-                            </span>
-                          ) : (
-                            <>
-                              <span>{item.paymentMethod}</span>
-                              {item.reference ? <span className="text-muted"> - {item.reference}</span> : null}
-                            </>
-                          )}
-                        </td>
-                        <td data-label="Estado">
-                          {item.type === 'sale' ? (
-                            <Badge bg={item.isPaid ? 'success' : 'warning'}>
-                              {item.isPaid ? 'Liquidada' : 'Pendiente'}
-                            </Badge>
-                          ) : (
-                            <Badge bg="secondary"><FiClock className="me-1" />Aplicado</Badge>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </Table>
+                          <small className="text-muted">{new Date(item.date).toLocaleDateString('es-MX')}</small>
+                        </span>
+                      ),
+                    },
+                    {
+                      key: 'venta',
+                      header: 'Venta',
+                      render: (item) => <Badge bg="light" text="dark">#{item.saleId}</Badge>,
+                    },
+                    {
+                      key: 'monto',
+                      header: 'Monto',
+                      className: 'fw-semibold',
+                      render: (item) => `$${item.amount.toLocaleString()}`,
+                    },
+                    {
+                      key: 'detalle',
+                      header: 'Detalle',
+                      render: (item) =>
+                        item.type === 'sale' ? (
+                          <span className="text-muted">{item.description || 'Registro de venta'}</span>
+                        ) : (
+                          <span>
+                            {item.paymentMethod}
+                            {item.reference ? <span className="text-muted"> - {item.reference}</span> : null}
+                          </span>
+                        ),
+                    },
+                    {
+                      key: 'estado',
+                      header: 'Estado',
+                      render: (item) =>
+                        item.type === 'sale' ? (
+                          <Badge bg={item.isPaid ? 'success' : 'warning'}>
+                            {item.isPaid ? 'Liquidada' : 'Pendiente'}
+                          </Badge>
+                        ) : (
+                          <Badge bg="secondary"><FiClock className="me-1" />Aplicado</Badge>
+                        ),
+                    },
+                  ]}
+                />
               )}
             </>
           )}
