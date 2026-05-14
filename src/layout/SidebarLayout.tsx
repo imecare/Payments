@@ -15,14 +15,16 @@ interface NavItemProps {
   label: string;
   badge?: number;
   isActive: boolean;
+  onClick?: () => void;
 }
 
-function NavItem({ to, icon, label, badge, isActive }: NavItemProps) {
+function NavItem({ to, icon, label, badge, isActive, onClick }: NavItemProps) {
   return (
     <Nav.Item>
       <Nav.Link 
         as={Link} 
-        to={to} 
+        to={to}
+        onClick={onClick}
         className={`text-white d-flex align-items-center py-2 px-3 rounded mb-1 ${
           isActive ? 'bg-primary' : 'hover-bg-dark'
         }`}
@@ -117,6 +119,7 @@ export default function SidebarLayout() {
               icon={item.icon}
               label={item.label}
               isActive={isActive(item.to)}
+              onClick={() => setOpen(false)}
             />
           ))}
         </Nav>
@@ -181,21 +184,44 @@ export default function SidebarLayout() {
       )}
 
       {/* Mobile Header */}
-      <header className="d-md-none bg-dark text-white p-3 d-flex justify-content-between align-items-center sticky-top">
+      <header
+        className="d-md-none sticky-top d-flex justify-content-between align-items-center px-3"
+        style={{
+          background: '#ffffff',
+          borderBottom: '2px solid #e9ecef',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+          minHeight: '56px',
+          zIndex: 1030,
+        }}
+      >
+        {/* Logo o nombre de empresa */}
         {logoUrl ? (
-          <img 
-            src={logoUrl} 
+          <img
+            src={logoUrl}
             alt={companyName}
-            style={{ maxWidth: '140px', maxHeight: '40px', objectFit: 'contain' }}
+            style={{ maxWidth: '140px', maxHeight: '38px', objectFit: 'contain' }}
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = 'none';
+              const fallback = document.getElementById('mobile-company-name');
+              if (fallback) fallback.style.display = 'block';
+            }}
           />
-        ) : (
-          <span className="fw-bold">{companyName}</span>
-        )}
+        ) : null}
+        <span
+          id="mobile-company-name"
+          className="fw-bold text-dark"
+          style={{ display: logoUrl ? 'none' : 'block', fontSize: '1rem' }}
+        >
+          {companyName}
+        </span>
+
+        {/* Botón hamburguesa */}
         <Button
-          variant="outline-light"
+          variant="outline-secondary"
           size="sm"
           onClick={() => setOpen(!open)}
           aria-label={open ? 'Cerrar menú' : 'Abrir menú'}
+          style={{ borderColor: '#dee2e6', color: '#495057' }}
         >
           {open ? <FiX size={20} /> : <FiMenu size={20} />}
         </Button>
@@ -204,12 +230,9 @@ export default function SidebarLayout() {
       {/* Main Content */}
       <main 
         className="flex-grow-1 bg-white"
-        style={{ 
-          marginLeft: '0',
-          minHeight: '100vh',
-        }}
+        style={{ minHeight: '100vh' }}
       >
-        <div className="d-none d-md-block" style={{ marginLeft: '250px' }}>
+        <div className="d-none d-md-block">
           <Container fluid className="p-4">
             <Outlet />
           </Container>

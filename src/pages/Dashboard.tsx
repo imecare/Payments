@@ -320,7 +320,7 @@ function Dashboard() {
                   No hay ventas registradas
                 </Alert>
               ) : (
-                <Table responsive hover className="mb-0">
+                <Table responsive hover className="mb-0 table-responsive-cards">
                   <thead className="table-light">
                     <tr>
                       <th>ID</th>
@@ -333,19 +333,19 @@ function Dashboard() {
                   <tbody>
                     {recentSales.map((sale) => (
                       <tr key={sale.id}>
-                        <td>
+                        <td data-label="ID">
                           <Badge bg="light" text="dark">#{sale.id}</Badge>
                         </td>
-                        <td>{getCustomerName(sale.customerId)}</td>
-                        <td className="text-end fw-bold">
+                        <td data-label="Cliente">{getCustomerName(sale.customerId)}</td>
+                        <td data-label="Total" className="text-end fw-bold">
                           ${sale.totalAmount.toLocaleString()}
                         </td>
-                        <td>
+                        <td data-label="Estado">
                           <Badge bg={sale.isPaid ? 'success' : 'warning'} text={sale.isPaid ? undefined : 'dark'}>
                             {sale.isPaid ? 'Liquidada' : 'Pendiente'}
                           </Badge>
                         </td>
-                        <td className="text-muted">
+                        <td data-label="Fecha" className="text-muted">
                           {new Date(sale.date).toLocaleDateString('es-MX')}
                         </td>
                       </tr>
@@ -370,7 +370,7 @@ function Dashboard() {
                   No hay vendedores registrados
                 </Alert>
               ) : (
-                <Table responsive hover className="mb-0">
+                <Table responsive hover className="mb-0 table-responsive-cards">
                   <thead className="table-light">
                     <tr>
                       <th>Vendedor</th>
@@ -382,7 +382,7 @@ function Dashboard() {
                   <tbody>
                     {sellerStats.map((seller, index) => (
                       <tr key={seller.id}>
-                        <td>
+                        <td data-label="Vendedor">
                           <div className="d-flex align-items-center">
                             <Badge 
                               bg={index === 0 ? 'warning' : index === 1 ? 'secondary' : 'light'} 
@@ -394,13 +394,13 @@ function Dashboard() {
                             {seller.name} {seller.lastName}
                           </div>
                         </td>
-                        <td className="text-center">
+                        <td data-label="Ventas" className="text-center">
                           <Badge bg="info">{seller.salesCount}</Badge>
                         </td>
-                        <td className="text-end">
+                        <td data-label="Total" className="text-end">
                           ${seller.totalSales.toLocaleString()}
                         </td>
-                        <td className="text-end text-success">
+                        <td data-label="Comisión" className="text-end text-success">
                           ${seller.totalCommission.toLocaleString()}
                         </td>
                       </tr>

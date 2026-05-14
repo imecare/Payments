@@ -144,7 +144,7 @@ export default function SaleDetailModal({
         {abonos.length === 0 ? (
           <Alert variant="light">No hay abonos registrados</Alert>
         ) : (
-          <Table size="sm" striped hover>
+          <Table size="sm" striped hover className="table-responsive-cards">
             <thead>
               <tr>
                 <th>Fecha</th>
@@ -156,16 +156,16 @@ export default function SaleDetailModal({
             <tbody>
               {abonos.map((payment: Payment) => (
                 <tr key={payment.id}>
-                  <td>{new Date(payment.date).toLocaleDateString('es-MX')}</td>
-                  <td className="text-success">${payment.amount.toLocaleString()}</td>
-                  <td>
+                  <td data-label="Fecha">{new Date(payment.date).toLocaleDateString('es-MX')}</td>
+                  <td data-label="Monto" className="text-success">${payment.amount.toLocaleString()}</td>
+                  <td data-label="Método">
                     <Badge bg="light" text="dark">
                       {payment.paymentMethod === 'Cash' && 'Efectivo'}
                       {payment.paymentMethod === 'Card' && 'Tarjeta'}
                       {payment.paymentMethod === 'Transfer' && 'Transferencia'}
                     </Badge>
                   </td>
-                  <td>{payment.reference || '-'}</td>
+                  <td data-label="Referencia">{payment.reference || '-'}</td>
                 </tr>
               ))}
             </tbody>

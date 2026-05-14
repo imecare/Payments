@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Badge, Button, Card, Col, Container, Form, Row, Table } from 'react-bootstrap';
+import { Alert, Badge, Button, Card, Col, Container, Form, Row } from 'react-bootstrap';
 import { FiAlertTriangle, FiArrowLeft, FiCheckCircle, FiClock, FiDollarSign, FiInfo, FiSearch, FiShoppingCart } from 'react-icons/fi';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { usePublicHistoryLookup } from '../features/sales/hooks/usePublicHistory';
 import { parsePublicHistoryError } from '../features/sales/api/publicHistoryApi';
-import type { Payment, Sale } from '../shared/types';
+import type { Sale, Payment } from '../shared/types';
 import JumperLogo from '../components/JumperLogo';
+import ResponsiveTable, { type Column } from '../components/ResponsiveTable';
 
 type TimelineItem = {
   id: string;
@@ -147,8 +148,16 @@ export default function ConsultaPage() {
         <Col lg={10} xl={9}>
           {/* Header con logo de empresa */}
           {(companyCode || lookup.data?.companyName) && (
-            <Card className="border-0 shadow-sm mb-4 bg-dark text-white">
-              <Card.Body className="py-3">
+            <Card
+              className="border-0 mb-4"
+              style={{
+                background: '#ffffff',
+                borderBottom: '2px solid #e9ecef !important',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                borderRadius: '0.75rem',
+              }}
+            >
+              <Card.Body className="py-3 px-4">
                 <div className="d-flex align-items-center gap-3">
                   {companyCode && (
                     <img
@@ -161,7 +170,9 @@ export default function ConsultaPage() {
                     />
                   )}
                   <div>
-                    <h5 className="mb-0">{lookup.data?.companyName || 'Consulta de Historial'}</h5>
+                    <h5 className="mb-0 text-dark fw-bold">
+                      {lookup.data?.companyName || 'Consulta de Historial'}
+                    </h5>
                     {lookup.data?.companyName && (
                       <small className="text-muted">Sistema de Gestión de Pagos</small>
                     )}
@@ -354,55 +365,78 @@ export default function ConsultaPage() {
                       </div>
                     )}
                     {filteredTimeline.length > 0 && (
-                    <Table responsive hover className="mb-0">
-                      <thead className="table-light">
-                        <tr>
-                          <th>Fecha</th>
-                          <th>Tipo</th>
-                          <th>Venta</th>
-                          <th>Monto</th>
-                          <th>Detalle</th>
-                          <th>Estado</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredTimeline.map((item) => (
-                          <tr key={item.id}>
-                            <td>{new Date(item.date).toLocaleDateString('es-MX')}</td>
-                            <td>
-                              {item.type === 'sale' ? (
-                                <Badge bg="primary"><FiShoppingCart className="me-1" />Compra</Badge>
-                              ) : (
-                                <Badge bg="success"><FiDollarSign className="me-1" />Abono</Badge>
-                              )}
-                            </td>
-                            <td>#{item.saleId}</td>
-                            <td className="fw-semibold">${item.amount.toLocaleString()}</td>
-                            <td>
-                              {item.type === 'sale' ? (
-                                <span className="text-muted">
-                                  {sales.find((s) => s.id === item.saleId)?.productDescription || 'Registro de venta'}
-                                </span>
-                              ) : (
-                                <>
-                                  <span>{item.paymentMethod}</span>
-                                  {item.reference ? <span className="text-muted"> - {item.reference}</span> : null}
-                                </>
-                              )}
-                            </td>
-                            <td>
-                              {item.type === 'sale' ? (
-                                <Badge bg={item.isPaid ? 'success' : 'warning'}>
-                                  {item.isPaid ? 'Liquidada' : 'Pendiente'}
-                                </Badge>
-                              ) : (
-                                <Badge bg="secondary"><FiClock className="me-1" />Aplicado</Badge>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </Table>
+                    <ResponsiveTable<TimelineItem>
+                      data={filteredTimeline}
+                      keyExtractor={(item) => item.id}
+                      striped={false}
+                      bordered={false}
+                      columns={[
+                        {
+                          key: 'fecha',
+                          header: 'Fecha',
+                          isCardTitle: true,
+                          render: (item) => (
+                            <span>
+                              <Badge
+                                bg={item.type === 'sale' ? 'primary' : 'success'}
+                                className="me-2"
+                              >
+                                {item.type === 'sale'
+                                  ? <><FiShoppingCart className="me-1" />Compra</>
+                                  : <><FiDollarSign className="me-1" />Abono</>}
+                              </Badge>
+                              <small className="text-muted">
+                                {new Date(item.date).toLocaleDateString('es-MX')}
+                              </small>
+                            </span>
+                          ),
+                        },
+                        {
+                          key: 'venta',
+                          header: 'Venta',
+                          render: (item) => (
+                            <Badge bg="light" text="dark">#{item.saleId}</Badge>
+                          ),
+                        },
+                        {
+                          key: 'monto',
+                          header: 'Monto',
+                          className: 'fw-semibold',
+                          render: (item) => `$${item.amount.toLocaleString()}`,
+                        },
+                        {
+                          key: 'detalle',
+                          header: 'Detalle',
+                          render: (item) =>
+                            item.type === 'sale' ? (
+                              <span className="text-muted">
+                                {sales.find((s) => s.id === item.saleId)?.productDescription || 'Registro de venta'}
+                              </span>
+                            ) : (
+                              <span>
+                                {item.paymentMethod}
+                                {item.reference
+                                  ? <span className="text-muted"> - {item.reference}</span>
+                                  : null}
+                              </span>
+                            ),
+                        },
+                        {
+                          key: 'estado',
+                          header: 'Estado',
+                          render: (item) =>
+                            item.type === 'sale' ? (
+                              <Badge bg={item.isPaid ? 'success' : 'warning'}>
+                                {item.isPaid ? 'Liquidada' : 'Pendiente'}
+                              </Badge>
+                            ) : (
+                              <Badge bg="secondary">
+                                <FiClock className="me-1" />Aplicado
+                              </Badge>
+                            ),
+                        },
+                      ] satisfies Column<TimelineItem>[]}
+                    />
                     )}
                     </>
                   )}

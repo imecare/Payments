@@ -73,7 +73,7 @@ export default function PaymentHistory({ saleId }: PaymentHistoryProps) {
 
   return (
     <>
-      <Table size="sm" striped hover className="mt-3">
+      <Table size="sm" striped hover className="mt-3 table-responsive-cards">
         <thead>
           <tr>
             <th>Fecha</th>
@@ -86,35 +86,37 @@ export default function PaymentHistory({ saleId }: PaymentHistoryProps) {
         <tbody>
           {abonos.map((payment) => (
             <tr key={payment.id}>
-              <td>{new Date(payment.date).toLocaleDateString('es-MX')}</td>
-              <td className="text-end text-success fw-bold">
+              <td data-label="Fecha">{new Date(payment.date).toLocaleDateString('es-MX')}</td>
+              <td data-label="Monto" className="text-end text-success fw-bold">
                 ${payment.amount.toLocaleString()}
               </td>
-              <td>
+              <td data-label="Método">
                 <Badge bg="secondary">
                   {payment.paymentMethod === 'Cash' && 'Efectivo'}
                   {payment.paymentMethod === 'Card' && 'Tarjeta'}
                   {payment.paymentMethod === 'Transfer' && 'Transferencia'}
                 </Badge>
               </td>
-              <td className="text-muted">{payment.reference || '-'}</td>
-              <td className="text-end">
-                <Button
-                  variant="link" size="sm"
-                  className="p-0 me-2 text-primary"
-                  title="Editar abono"
-                  onClick={() => openEdit(payment)}
-                >
-                  <FiEdit2 />
-                </Button>
-                <Button
-                  variant="link" size="sm"
-                  className="p-0 text-danger"
-                  title="Eliminar abono"
-                  onClick={() => { setDeletingPayment(payment); setDeleteReason(''); }}
-                >
-                  <FiTrash2 />
-                </Button>
+              <td data-label="Referencia" className="text-muted">{payment.reference || '-'}</td>
+              <td data-label="Acciones" className="text-end">
+                <div className="d-flex gap-1 justify-content-center justify-content-md-end">
+                  <Button
+                    variant="link" size="sm"
+                    className="p-0 text-primary"
+                    title="Editar abono"
+                    onClick={() => openEdit(payment)}
+                  >
+                    <FiEdit2 />
+                  </Button>
+                  <Button
+                    variant="link" size="sm"
+                    className="p-0 text-danger"
+                    title="Eliminar abono"
+                    onClick={() => { setDeletingPayment(payment); setDeleteReason(''); }}
+                  >
+                    <FiTrash2 />
+                  </Button>
+                </div>
               </td>
             </tr>
           ))}

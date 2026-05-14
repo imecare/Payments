@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
-import { Button, Table, Modal, Form, Row, Col, Badge, InputGroup, Alert, Card, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { Button, Modal, Form, Row, Col, Badge, InputGroup, Alert, Card, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { FiSearch, FiPlus, FiEdit2, FiPhone, FiUsers, FiEye, FiLink, FiCheckCircle, FiCopy, FiDollarSign, FiShoppingCart, FiClock } from 'react-icons/fi';
+import ResponsiveTable, { type Column } from '../components/ResponsiveTable';
 import { 
   useCustomers, 
   useCreateCustomer, 
@@ -270,93 +271,87 @@ export default function ClientsPage() {
       </Row>
 
       {/* Table */}
-      <div className="table-responsive">
-        <Table striped bordered hover className="align-middle">
-          <thead className="table-dark">
-            <tr>
-              <th>ID</th>
-              <th>Nombre Completo</th>
-              <th>Teléfono</th>
-              <th>RFC</th>
-              <th>Vendedor Asignado</th>
-              <th style={{ width: '200px' }}>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredCustomers.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="text-center py-4 text-muted">
-                  {searchTerm ? 'No se encontraron clientes' : 'No hay clientes registrados'}
-                </td>
-              </tr>
-            ) : (
-              filteredCustomers.map((customer) => (
-                <tr key={customer.id}>
-                  <td>
-                    <Badge bg="light" text="dark">#{customer.id}</Badge>
-                  </td>
-                  <td>
-                    <strong>{customer.name}</strong> {customer.lastName}
-                  </td>
-                  <td>
-                    <FiPhone className="me-2 text-muted" />
-                    {customer.phone}
-                  </td>
-                  <td>{customer.rfc || '-'}</td>
-                  <td>
-                    <Badge bg="info" text="dark">
-                      {getSellerName(customer.sellerId)}
-                    </Badge>
-                  </td>
-                  <td>
-                    <div className="d-flex gap-1">
-                      <OverlayTrigger
-                        placement="top"
-                        overlay={<Tooltip>Ver historial</Tooltip>}
-                      >
-                        <Button 
-                          size="sm" 
-                          variant="outline-success"
-                          onClick={() => handleViewHistory(customer)}
-                          aria-label={`Ver historial de ${customer.name}`}
-                        >
-                          <FiEye />
-                        </Button>
-                      </OverlayTrigger>
-                      <OverlayTrigger
-                        placement="top"
-                        overlay={<Tooltip>Copiar link de consulta</Tooltip>}
-                      >
-                        <Button 
-                          size="sm" 
-                          variant="outline-secondary"
-                          onClick={() => handleCopyLink(customer)}
-                          aria-label={`Copiar link para ${customer.name}`}
-                        >
-                          <FiLink />
-                        </Button>
-                      </OverlayTrigger>
-                      <OverlayTrigger
-                        placement="top"
-                        overlay={<Tooltip>Editar cliente</Tooltip>}
-                      >
-                        <Button 
-                          size="sm" 
-                          variant="outline-primary"
-                          onClick={() => handleOpenModal(customer)}
-                          aria-label={`Editar ${customer.name}`}
-                        >
-                          <FiEdit2 />
-                        </Button>
-                      </OverlayTrigger>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </Table>
-      </div>
+      <ResponsiveTable<Customer>
+        data={filteredCustomers}
+        keyExtractor={(c) => c.id}
+        emptyMessage={searchTerm ? 'No se encontraron clientes' : 'No hay clientes registrados'}
+        columns={[
+          {
+            key: 'name',
+            header: 'Cliente',
+            isCardTitle: true,
+            render: (c) => (
+              <span>
+                <strong>{c.name}</strong> {c.lastName}
+              </span>
+            ),
+          },
+          {
+            key: 'phone',
+            header: 'Teléfono',
+            render: (c) => (
+              <>
+                <FiPhone className="me-1 text-muted" />
+                {c.phone}
+              </>
+            ),
+          },
+          {
+            key: 'rfc',
+            header: 'RFC',
+            render: (c) => c.rfc || '-',
+          },
+          {
+            key: 'seller',
+            header: 'Vendedor',
+            render: (c) => (
+              <Badge bg="info" text="dark">
+                {getSellerName(c.sellerId)}
+              </Badge>
+            ),
+          },
+          {
+            key: 'actions',
+            header: 'Acciones',
+            headerClassName: 'text-center',
+            isActions: true,
+            render: (c) => (
+              <>
+                <OverlayTrigger placement="top" overlay={<Tooltip>Ver historial</Tooltip>}>
+                  <Button
+                    size="sm"
+                    variant="outline-success"
+                    onClick={() => handleViewHistory(c)}
+                    aria-label={`Ver historial de ${c.name}`}
+                  >
+                    <FiEye />
+                  </Button>
+                </OverlayTrigger>
+                <OverlayTrigger placement="top" overlay={<Tooltip>Copiar link</Tooltip>}>
+                  <Button
+                    size="sm"
+                    variant="outline-secondary"
+                    onClick={() => handleCopyLink(c)}
+                    aria-label={`Copiar link para ${c.name}`}
+                  >
+                    <FiLink />
+                  </Button>
+                </OverlayTrigger>
+                <OverlayTrigger placement="top" overlay={<Tooltip>Editar</Tooltip>}>
+                  <Button
+                    size="sm"
+                    variant="outline-primary"
+                    onClick={() => handleOpenModal(c)}
+                    aria-label={`Editar ${c.name}`}
+                  >
+                    <FiEdit2 />
+                  </Button>
+                </OverlayTrigger>
+              </>
+            ),
+          },
+        ] satisfies Column<Customer>[]}
+      />
 
       {/* Create/Edit Modal */}
       <Modal show={showModal} onHide={handleCloseModal} centered size="lg">
@@ -540,7 +535,7 @@ export default function ClientsPage() {
                   Este cliente no tiene movimientos registrados.
                 </Alert>
               ) : (
-                <Table hover responsive className="mb-0">
+                <Table hover responsive className="mb-0 table-responsive-cards">
                   <thead className="table-light">
                     <tr>
                       <th>Fecha</th>
@@ -554,17 +549,17 @@ export default function ClientsPage() {
                   <tbody>
                     {historyTimeline.map((item) => (
                       <tr key={item.id}>
-                        <td>{new Date(item.date).toLocaleDateString('es-MX')}</td>
-                        <td>
+                        <td data-label="Fecha">{new Date(item.date).toLocaleDateString('es-MX')}</td>
+                        <td data-label="Tipo">
                           {item.type === 'sale' ? (
                             <Badge bg="primary"><FiShoppingCart className="me-1" />Compra</Badge>
                           ) : (
                             <Badge bg="success"><FiDollarSign className="me-1" />Abono</Badge>
                           )}
                         </td>
-                        <td>#{item.saleId}</td>
-                        <td className="fw-semibold">${item.amount.toLocaleString()}</td>
-                        <td>
+                        <td data-label="Venta">#{item.saleId}</td>
+                        <td data-label="Monto" className="fw-semibold">${item.amount.toLocaleString()}</td>
+                        <td data-label="Detalle">
                           {item.type === 'sale' ? (
                             <span className="text-muted">
                               {item.description || 'Registro de venta'}
@@ -576,7 +571,7 @@ export default function ClientsPage() {
                             </>
                           )}
                         </td>
-                        <td>
+                        <td data-label="Estado">
                           {item.type === 'sale' ? (
                             <Badge bg={item.isPaid ? 'success' : 'warning'}>
                               {item.isPaid ? 'Liquidada' : 'Pendiente'}

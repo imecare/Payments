@@ -79,7 +79,7 @@ export default function PaymentTable({ saleId, totalAmount }: PaymentTableProps)
         />
       </div>
 
-      <Table size="sm" hover responsive className="mb-0">
+      <Table size="sm" hover responsive className="mb-0 table-responsive-cards">
         <thead className="table-light">
           <tr>
             <th>#</th>
@@ -94,13 +94,13 @@ export default function PaymentTable({ saleId, totalAmount }: PaymentTableProps)
             const method = METHOD_LABELS[p.paymentMethod] ?? { label: p.paymentMethod, bg: 'secondary' };
             return (
               <tr key={p.id}>
-                <td className="text-muted">{idx + 1}</td>
-                <td>{new Date(p.date).toLocaleDateString('es-MX')}</td>
-                <td className="fw-semibold text-success">${p.amount.toLocaleString()}</td>
-                <td>
+                <td data-label="#" className="text-muted">{idx + 1}</td>
+                <td data-label="Fecha">{new Date(p.date).toLocaleDateString('es-MX')}</td>
+                <td data-label="Monto" className="fw-semibold text-success">${p.amount.toLocaleString()}</td>
+                <td data-label="Método">
                   <Badge bg={method.bg}>{method.label}</Badge>
                 </td>
-                <td className="text-muted">{p.reference || '—'}</td>
+                <td data-label="Referencia" className="text-muted">{p.reference || '—'}</td>
               </tr>
             );
           })}

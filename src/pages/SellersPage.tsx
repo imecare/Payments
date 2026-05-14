@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
-import { Button, Table, Modal, Form, Row, Col, Badge, InputGroup } from 'react-bootstrap';
+import { Button, Modal, Form, Row, Col, Badge, InputGroup } from 'react-bootstrap';
 import { FiSearch, FiPlus, FiEdit2, FiPhone, FiUser, FiToggleLeft, FiToggleRight } from 'react-icons/fi';
+import ResponsiveTable, { type Column } from '../components/ResponsiveTable';
 import { 
   useSellers, 
   useCreateSeller, 
@@ -139,74 +140,75 @@ export default function SellersPage() {
       </Row>
 
       {/* Table */}
-      <div className="table-responsive">
-        <Table striped bordered hover className="align-middle">
-          <thead className="table-dark">
-            <tr>
-              <th>ID</th>
-              <th>Nombre Completo</th>
-              <th>Teléfono</th>
-              <th>Estado</th>
-              <th>Fecha de Registro</th>
-              <th style={{ width: '200px' }}>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredSellers.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="text-center py-4 text-muted">
-                  {searchTerm ? 'No se encontraron vendedores' : 'No hay vendedores registrados'}
-                </td>
-              </tr>
-            ) : (
-              filteredSellers.map((seller) => (
-                <tr key={seller.id}>
-                  <td>
-                    <Badge bg="light" text="dark">#{seller.id}</Badge>
-                  </td>
-                  <td>
-                    <strong>{seller.name}</strong> {seller.lastName}
-                  </td>
-                  <td>
-                    <FiPhone className="me-2 text-muted" />
-                    {seller.phone}
-                  </td>
-                  <td>
-                    <Badge bg={seller.statusId === 1 ? 'success' : 'secondary'}>
-                      {seller.statusId === 1 ? 'Activo' : 'Inactivo'}
-                    </Badge>
-                  </td>
-                  <td>
-                    {new Date(seller.date).toLocaleDateString('es-MX')}
-                  </td>
-                  <td>
-                    <Button 
-                      size="sm" 
-                      variant={seller.statusId === 1 ? 'outline-danger' : 'outline-success'}
-                      className="me-2"
-                      onClick={() => handleToggleStatus(seller)}
-                      disabled={toggleStatusMutation.isPending}
-                      aria-label={seller.statusId === 1 ? 'Desactivar' : 'Activar'}
-                      title={seller.statusId === 1 ? 'Desactivar vendedor' : 'Activar vendedor'}
-                    >
-                      {seller.statusId === 1 ? <FiToggleRight /> : <FiToggleLeft />}
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="outline-primary" 
-                      className="me-2"
-                      onClick={() => handleOpenModal(seller)}
-                      aria-label={`Editar ${seller.name}`}
-                    >
-                      <FiEdit2 />
-                    </Button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </Table>
-      </div>
+      <ResponsiveTable<Seller>
+        data={filteredSellers}
+        keyExtractor={(s) => s.id}
+        emptyMessage={searchTerm ? 'No se encontraron vendedores' : 'No hay vendedores registrados'}
+        columns={[
+          {
+            key: 'name',
+            header: 'Vendedor',
+            isCardTitle: true,
+            render: (s) => (
+              <span>
+                <strong>{s.name}</strong> {s.lastName}
+              </span>
+            ),
+          },
+          {
+            key: 'phone',
+            header: 'Teléfono',
+            render: (s) => (
+              <>
+                <FiPhone className="me-1 text-muted" />
+                {s.phone}
+              </>
+            ),
+          },
+          {
+            key: 'status',
+            header: 'Estado',
+            render: (s) => (
+              <Badge bg={s.statusId === 1 ? 'success' : 'secondary'}>
+                {s.statusId === 1 ? 'Activo' : 'Inactivo'}
+              </Badge>
+            ),
+          },
+          {
+            key: 'date',
+            header: 'Fecha de Registro',
+            render: (s) => new Date(s.date).toLocaleDateString('es-MX'),
+          },
+          {
+            key: 'actions',
+            header: 'Acciones',
+            headerClassName: 'text-center',
+            isActions: true,
+            render: (s) => (
+              <>
+                <Button
+                  size="sm"
+                  variant={s.statusId === 1 ? 'outline-danger' : 'outline-success'}
+                  onClick={() => handleToggleStatus(s)}
+                  disabled={toggleStatusMutation.isPending}
+                  aria-label={s.statusId === 1 ? 'Desactivar' : 'Activar'}
+                  title={s.statusId === 1 ? 'Desactivar vendedor' : 'Activar vendedor'}
+                >
+                  {s.statusId === 1 ? <FiToggleRight /> : <FiToggleLeft />}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline-primary"
+                  onClick={() => handleOpenModal(s)}
+                  aria-label={`Editar ${s.name}`}
+                >
+                  <FiEdit2 />
+                </Button>
+              </>
+            ),
+          },
+        ] satisfies Column<Seller>[]}
+      />
 
       {/* Create/Edit Modal */}
       <Modal show={showModal} onHide={handleCloseModal} centered>

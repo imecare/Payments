@@ -1,5 +1,5 @@
 body {
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   background-color: #ffffff;
 }
 
@@ -22,4 +22,131 @@ body {
 
 .nav-link:hover {
   background-color: #1b263b !important;
+}
+
+/* ================================================
+   TABLAS RESPONSIVAS — Diseño tipo tarjeta en móvil
+   Sin scroll horizontal, cada fila se convierte en card
+   ================================================ */
+
+.table-card-wrapper {
+  width: 100%;
+  overflow-x: hidden;
+}
+
+@media (max-width: 767px) {
+
+  .table-card-wrapper {
+    overflow-x: hidden !important;
+  }
+
+  /* ── Nivel 1: la <table> ── */
+  .table-card-wrapper > table.table-responsive-cards {
+    display: block !important;
+    width: 100% !important;
+    overflow: hidden !important;
+    border: none !important;
+  }
+
+  /* ── Nivel 2: thead oculto ── */
+  .table-card-wrapper > table.table-responsive-cards > thead {
+    display: none !important;
+  }
+
+  /* ── Nivel 2: tbody como bloque ── */
+  .table-card-wrapper > table.table-responsive-cards > tbody {
+    display: block !important;
+    width: 100% !important;
+  }
+
+  /* ── Nivel 3: cada <tr> = tarjeta ── */
+  .table-card-wrapper > table.table-responsive-cards > tbody > tr {
+    display: block !important;
+    width: 100% !important;
+    margin-bottom: 0.875rem !important;
+    border: 1px solid #dee2e6 !important;
+    border-radius: 0.5rem !important;
+    background: #ffffff !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1) !important;
+    overflow: hidden !important;
+    /* Resetear variables de Bootstrap striped/hover */
+    --bs-table-bg: #ffffff;
+    --bs-table-striped-bg: #ffffff;
+    --bs-table-hover-bg: #ffffff;
+    --bs-table-active-bg: #ffffff;
+  }
+
+  /* ── Nivel 4: cada <td> = fila label:valor ── */
+  .table-card-wrapper > table.table-responsive-cards > tbody > tr > td {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 0.55rem 1rem !important;
+    border-top: none !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-bottom: 1px solid #f1f3f5 !important;
+    text-align: right !important;
+    font-size: 0.875rem !important;
+    min-height: 2.4rem !important;
+    /* Resetear variables de color de celda de Bootstrap */
+    background-color: transparent !important;
+    --bs-table-bg-state: initial !important;
+    --bs-table-bg-type: initial !important;
+    color: #212529 !important;
+  }
+
+  .table-card-wrapper > table.table-responsive-cards > tbody > tr > td:last-child {
+    border-bottom: none !important;
+  }
+
+  /* Primera celda: encabezado gris de la tarjeta */
+  .table-card-wrapper > table.table-responsive-cards > tbody > tr > td:first-child {
+    background-color: #f8f9fa !important;
+    font-weight: 700 !important;
+    font-size: 0.8rem !important;
+    color: #6c757d !important;
+    border-bottom: 2px solid #dee2e6 !important;
+    justify-content: flex-start !important;
+  }
+
+  /* Label automático via data-label */
+  .table-card-wrapper > table.table-responsive-cards > tbody > tr > td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #495057;
+    text-align: left;
+    flex-shrink: 0;
+    margin-right: 1rem;
+    white-space: nowrap;
+    font-size: 0.8rem;
+  }
+
+  .table-card-wrapper > table.table-responsive-cards > tbody > tr > td:first-child::before {
+    display: none !important;
+  }
+
+  /* Celda Acciones: centrada sin label */
+  .table-card-wrapper > table.table-responsive-cards > tbody > tr > td[data-label="Acciones"] {
+    justify-content: center !important;
+    background-color: #f8f9fa !important;
+    padding: 0.75rem 1rem !important;
+  }
+
+  .table-card-wrapper > table.table-responsive-cards > tbody > tr > td[data-label="Acciones"]::before {
+    display: none !important;
+  }
+
+  /* Fila sin resultados (td con colspan) */
+  .table-card-wrapper > table.table-responsive-cards > tbody > tr > td[colspan] {
+    justify-content: center !important;
+    text-align: center !important;
+    width: 100% !important;
+  }
+
+  .table-card-wrapper > table.table-responsive-cards > tbody > tr > td[colspan]::before {
+    display: none !important;
+  }
 }

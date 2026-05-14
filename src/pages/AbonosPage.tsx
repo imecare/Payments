@@ -370,7 +370,7 @@ export default function AbonosPage() {
       {/* Sales table */}
       <Card className="border-0 shadow-sm">
         <Card.Body className="p-0">
-          <Table hover responsive className="mb-0">
+          <Table hover responsive className="mb-0 table-responsive-cards">
             <thead className="table-light">
               <tr>
                 <th style={{ width: '40px' }}></th>
@@ -407,7 +407,7 @@ export default function AbonosPage() {
 
                   return (
                     <tr key={sale.id}>
-                      <td className="text-center align-middle">
+                      <td data-label="Estado Pago" className="text-center align-middle">
                         {status !== 'none' && (
                           <OverlayTrigger
                             placement="top"
@@ -423,20 +423,20 @@ export default function AbonosPage() {
                           </OverlayTrigger>
                         )}
                       </td>
-                      <td className="text-muted">{sale.id}</td>
-                      <td>{getCustomerName(sale.customerId)}</td>
-                      <td className="text-muted">{getSellerName(sale.sellerId)}</td>
-                      <td className="fw-semibold">${sale.totalAmount.toLocaleString()}</td>
-                      <td className="text-success fw-semibold">${totalAbonado.toLocaleString()}</td>
-                      <td>
+                      <td data-label="Venta #" className="text-muted">{sale.id}</td>
+                      <td data-label="Cliente">{getCustomerName(sale.customerId)}</td>
+                      <td data-label="Vendedor" className="text-muted">{getSellerName(sale.sellerId)}</td>
+                      <td data-label="Total" className="fw-semibold">${sale.totalAmount.toLocaleString()}</td>
+                      <td data-label="Abonado" className="text-success fw-semibold">${totalAbonado.toLocaleString()}</td>
+                      <td data-label="Estado">
                         <Badge bg={sale.isPaid ? 'success' : 'warning'}>
                           {sale.isPaid ? 'Liquidada' : 'Pendiente'}
                         </Badge>
                       </td>
-                      <td className="text-muted">
+                      <td data-label="Fecha" className="text-muted">
                         {new Date(sale.date).toLocaleDateString('es-MX')}
                       </td>
-                      <td>
+                      <td data-label="Acciones">
                         <Button
                           size="sm"
                           variant="outline-primary"

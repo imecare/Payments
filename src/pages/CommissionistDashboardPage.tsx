@@ -148,7 +148,7 @@ export default function CommissionistDashboardPage() {
                   No tienes clientes asignados.
                 </Alert>
               ) : (
-                <Table responsive hover className="mb-0 align-middle">
+                <Table responsive hover className="mb-0 align-middle table-responsive-cards">
                   <thead className="table-light">
                     <tr>
                       <th>Cliente</th>
@@ -158,10 +158,10 @@ export default function CommissionistDashboardPage() {
                   <tbody>
                     {myCustomers.map((customer) => (
                       <tr key={customer.id}>
-                        <td>
+                        <td data-label="Cliente">
                           <strong>{customer.name}</strong> {customer.lastName}
                         </td>
-                        <td>{customer.phone}</td>
+                        <td data-label="Teléfono">{customer.phone}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -194,7 +194,7 @@ export default function CommissionistDashboardPage() {
                   No tienes ventas registradas.
                 </Alert>
               ) : (
-                <Table responsive hover className="mb-0 align-middle">
+                <Table responsive hover className="mb-0 align-middle table-responsive-cards">
                   <thead className="table-light">
                     <tr>
                       <th>ID</th>
@@ -208,15 +208,15 @@ export default function CommissionistDashboardPage() {
                   <tbody>
                     {mySales.map((sale) => (
                       <tr key={sale.id}>
-                        <td>#{sale.id}</td>
-                        <td>{getCustomerName(sale.customerId)}</td>
-                        <td title={sale.productDescription || 'Sin descripcion'}>
+                        <td data-label="ID">#{sale.id}</td>
+                        <td data-label="Cliente">{getCustomerName(sale.customerId)}</td>
+                        <td data-label="Descripción" title={sale.productDescription || 'Sin descripcion'}>
                           {(sale.productDescription || 'Sin descripcion').slice(0, 35)}
                           {(sale.productDescription || '').length > 35 ? '...' : ''}
                         </td>
-                        <td className="text-end">${sale.totalAmount.toLocaleString()}</td>
-                        <td className="text-end">${sale.commissionAmount.toLocaleString()}</td>
-                        <td>
+                        <td data-label="Total" className="text-end">${sale.totalAmount.toLocaleString()}</td>
+                        <td data-label="Comisión" className="text-end">${sale.commissionAmount.toLocaleString()}</td>
+                        <td data-label="Estado">
                           <Badge bg={sale.isCommissionPaid ? 'success' : 'secondary'}>
                             Comisión {sale.isCommissionPaid ? 'pagada' : 'pendiente'}
                           </Badge>
