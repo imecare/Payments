@@ -22,6 +22,10 @@ interface ResponsiveTableProps<T> {
   hover?: boolean;
   bordered?: boolean;
   className?: string;
+  /** Callback cuando se hace click en una fila */
+  onRowClick?: (item: T) => void;
+  /** Función para determinar si una fila está seleccionada */
+  isRowSelected?: (item: T) => boolean;
 }
 
 /** 
@@ -38,11 +42,14 @@ function ResponsiveTable<T>({
   hover = true,
   bordered = true,
   className = '',
+  onRowClick,
+  isRowSelected,
 }: ResponsiveTableProps<T>) {
 
   const regularColumns = columns.filter((c) => !c.isActions);
   const titleColumn = columns.find((c) => c.isCardTitle) ?? columns[0];
   const actionsColumn = columns.find((c) => c.isActions);
+  const isClickable = !!onRowClick;
 
   if (data.length === 0) {
     return (
@@ -73,7 +80,12 @@ function ResponsiveTable<T>({
           </thead>
           <tbody>
             {data.map((item) => (
-              <tr key={keyExtractor(item)}>
+              <tr 
+                key={keyExtractor(item)}
+                onClick={onRowClick ? () => onRowClick(item) : undefined}
+                style={isClickable ? { cursor: 'pointer' } : undefined}
+                className={isRowSelected?.(item) ? 'table-primary' : ''}
+              >
                 {columns.map((col) => (
                   <td key={col.key} className={col.className}>
                     {col.render(item)}
@@ -88,9 +100,14 @@ function ResponsiveTable<T>({
       {/* ── MOBILE: tarjetas apiladas ── */}
       <div className="d-md-none">
         {data.map((item) => (
-          <Card key={keyExtractor(item)} className="mb-3 shadow-sm border">
+          <Card 
+            key={keyExtractor(item)} 
+            className={`mb-3 shadow-sm border ${isRowSelected?.(item) ? 'border-primary' : ''}`}
+            onClick={onRowClick ? () => onRowClick(item) : undefined}
+            style={isClickable ? { cursor: 'pointer' } : undefined}
+          >
             {/* Encabezado de la card: columna marcada como título */}
-            <Card.Header className="bg-light d-flex align-items-center py-2 px-3">
+            <Card.Header className={`d-flex align-items-center py-2 px-3 ${isRowSelected?.(item) ? 'bg-primary text-white' : 'bg-light'}`}>
               <span className="fw-bold">{titleColumn.render(item)}</span>
             </Card.Header>
 

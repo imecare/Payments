@@ -43,10 +43,25 @@ function SaleDetailModal({
   sale: Sale | null; 
   show: boolean; 
   onHide: () => void;
-  onPayCommission: () => void;
+  onPayCommission: (paid: boolean, note?: string) => void;
   isPayingCommission: boolean;
 }) {
   const { data: payments = [], isLoading: loadingPayments } = usePaymentsBySale(sale?.id ?? 0);
+  const [showCommissionModal, setShowCommissionModal] = useState(false);
+  const [commissionNote, setCommissionNote] = useState('');
+  const [commissionAction, setCommissionAction] = useState<'pay' | 'revert'>('pay');
+
+  const handleOpenCommissionModal = (action: 'pay' | 'revert') => {
+    setCommissionAction(action);
+    setCommissionNote('');
+    setShowCommissionModal(true);
+  };
+
+  const handleConfirmCommission = () => {
+    onPayCommission(commissionAction === 'pay', commissionNote || undefined);
+    setShowCommissionModal(false);
+    setCommissionNote('');
+  };
   
   if (!sale) return null;
   
@@ -136,6 +151,7 @@ function SaleDetailModal({
               </Badge>
             </div>
             
+            {/* Botón para pagar comisión (solo si venta liquidada y comisión pendiente) */}
             {sale.isPaid && !sale.isCommissionPaid && (
               <Alert variant="info" className="mt-3">
                 <small>
@@ -145,7 +161,7 @@ function SaleDetailModal({
                   <Button 
                     variant="success" 
                     size="sm"
-                    onClick={onPayCommission}
+                    onClick={() => handleOpenCommissionModal('pay')}
                     disabled={isPayingCommission}
                   >
                     {isPayingCommission ? 'Procesando...' : 'Marcar comisión como pagada'}
@@ -153,8 +169,66 @@ function SaleDetailModal({
                 </div>
               </Alert>
             )}
+
+            {/* Botón para revertir comisión (solo si ya está pagada) */}
+            {sale.isCommissionPaid && (
+              <Alert variant="success" className="mt-3">
+                <small>
+                  Comisión pagada{sale.commissionPaidAt ? ` el ${new Date(sale.commissionPaidAt).toLocaleDateString('es-MX')}` : ''}.
+                </small>
+                <div className="mt-2">
+                  <Button 
+                    variant="outline-warning" 
+                    size="sm"
+                    onClick={() => handleOpenCommissionModal('revert')}
+                    disabled={isPayingCommission}
+                  >
+                    {isPayingCommission ? 'Procesando...' : 'Revertir pago de comisión'}
+                  </Button>
+                </div>
+              </Alert>
+            )}
           </Col>
         </Row>
+
+        {/* Modal de confirmación para comisión */}
+        <Modal show={showCommissionModal} onHide={() => setShowCommissionModal(false)} centered>
+          <Modal.Header closeButton>
+            <Modal.Title>
+              {commissionAction === 'pay' ? 'Confirmar pago de comisión' : 'Revertir pago de comisión'}
+            </Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <p>
+              {commissionAction === 'pay' 
+                ? `¿Confirmas que se pagó la comisión de $${sale.commissionAmount.toLocaleString()} al vendedor?`
+                : `¿Estás seguro de revertir el pago de comisión de $${sale.commissionAmount.toLocaleString()}?`
+              }
+            </p>
+            <Form.Group>
+              <Form.Label>Nota (opcional)</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={2}
+                placeholder={commissionAction === 'pay' ? 'Ej: Pagado en efectivo' : 'Ej: Error de registro'}
+                value={commissionNote}
+                onChange={(e) => setCommissionNote(e.target.value)}
+              />
+            </Form.Group>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setShowCommissionModal(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              variant={commissionAction === 'pay' ? 'success' : 'warning'}
+              onClick={handleConfirmCommission}
+              disabled={isPayingCommission}
+            >
+              {isPayingCommission ? 'Procesando...' : 'Confirmar'}
+            </Button>
+          </Modal.Footer>
+        </Modal>
         
         <h6>Historial de Abonos</h6>
         {loadingPayments ? (
@@ -392,14 +466,18 @@ export default function SalesPage() {
     }
   };
 
-  const handlePayCommission = async () => {
+  const handlePayCommission = async (paid: boolean, note?: string) => {
     if (!selectedSale) return;
     
     try {
-      await markCommissionPaidMutation.mutateAsync({ saleId: selectedSale.id });
-      setSelectedSale({ ...selectedSale, isCommissionPaid: true });
+      await markCommissionPaidMutation.mutateAsync({ saleId: selectedSale.id, paid, note });
+      setSelectedSale({ 
+        ...selectedSale, 
+        isCommissionPaid: paid,
+        commissionPaidAt: paid ? new Date().toISOString() : null 
+      });
     } catch (err) {
-      console.error('Error marking commission as paid:', err);
+      console.error('Error updating commission status:', err);
     }
   };
 

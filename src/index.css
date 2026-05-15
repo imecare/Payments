@@ -41,7 +41,7 @@ body {
   }
 
   /* ── Nivel 1: la <table> ── */
-  .table-card-wrapper > table.table-responsive-cards {
+  .table-card-wrapper table.table-responsive-cards {
     display: block !important;
     width: 100% !important;
     overflow: hidden !important;
@@ -49,18 +49,18 @@ body {
   }
 
   /* ── Nivel 2: thead oculto ── */
-  .table-card-wrapper > table.table-responsive-cards > thead {
+  .table-card-wrapper table.table-responsive-cards thead {
     display: none !important;
   }
 
   /* ── Nivel 2: tbody como bloque ── */
-  .table-card-wrapper > table.table-responsive-cards > tbody {
+  .table-card-wrapper table.table-responsive-cards tbody {
     display: block !important;
     width: 100% !important;
   }
 
   /* ── Nivel 3: cada <tr> = tarjeta ── */
-  .table-card-wrapper > table.table-responsive-cards > tbody > tr {
+  .table-card-wrapper table.table-responsive-cards tbody tr {
     display: block !important;
     width: 100% !important;
     margin-bottom: 0.875rem !important;
@@ -77,7 +77,7 @@ body {
   }
 
   /* ── Nivel 4: cada <td> = fila label:valor ── */
-  .table-card-wrapper > table.table-responsive-cards > tbody > tr > td {
+  .table-card-wrapper table.table-responsive-cards tbody tr td {
     display: flex !important;
     justify-content: space-between !important;
     align-items: center !important;
@@ -98,12 +98,12 @@ body {
     color: #212529 !important;
   }
 
-  .table-card-wrapper > table.table-responsive-cards > tbody > tr > td:last-child {
+  .table-card-wrapper table.table-responsive-cards tbody tr td:last-child {
     border-bottom: none !important;
   }
 
   /* Primera celda: encabezado gris de la tarjeta */
-  .table-card-wrapper > table.table-responsive-cards > tbody > tr > td:first-child {
+  .table-card-wrapper table.table-responsive-cards tbody tr td:first-child {
     background-color: #f8f9fa !important;
     font-weight: 700 !important;
     font-size: 0.8rem !important;
@@ -113,7 +113,7 @@ body {
   }
 
   /* Label automático via data-label */
-  .table-card-wrapper > table.table-responsive-cards > tbody > tr > td::before {
+  .table-card-wrapper table.table-responsive-cards tbody tr td::before {
     content: attr(data-label);
     font-weight: 600;
     color: #495057;
@@ -124,29 +124,29 @@ body {
     font-size: 0.8rem;
   }
 
-  .table-card-wrapper > table.table-responsive-cards > tbody > tr > td:first-child::before {
+  .table-card-wrapper table.table-responsive-cards tbody tr td:first-child::before {
     display: none !important;
   }
 
   /* Celda Acciones: centrada sin label */
-  .table-card-wrapper > table.table-responsive-cards > tbody > tr > td[data-label="Acciones"] {
+  .table-card-wrapper table.table-responsive-cards tbody tr td[data-label="Acciones"] {
     justify-content: center !important;
     background-color: #f8f9fa !important;
     padding: 0.75rem 1rem !important;
   }
 
-  .table-card-wrapper > table.table-responsive-cards > tbody > tr > td[data-label="Acciones"]::before {
+  .table-card-wrapper table.table-responsive-cards tbody tr td[data-label="Acciones"]::before {
     display: none !important;
   }
 
   /* Fila sin resultados (td con colspan) */
-  .table-card-wrapper > table.table-responsive-cards > tbody > tr > td[colspan] {
+  .table-card-wrapper table.table-responsive-cards tbody tr td[colspan] {
     justify-content: center !important;
     text-align: center !important;
     width: 100% !important;
   }
 
-  .table-card-wrapper > table.table-responsive-cards > tbody > tr > td[colspan]::before {
+  .table-card-wrapper table.table-responsive-cards tbody tr td[colspan]::before {
     display: none !important;
   }
 }
