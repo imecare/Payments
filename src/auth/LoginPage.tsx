@@ -74,31 +74,38 @@ export default function LoginPage() {
         email: data.email,
       });
       navigate(getLandingPath(data));
-    } catch (e: any) {
-      console.error(e);
-      
-      // Detectar errores de conexión/servidor
-      const errorMessage = e.response?.data?.message || e.message || '';
-      const isTransientError = 
-        errorMessage.includes('transient') || 
-        errorMessage.includes('EnableRetryOnFailure') ||
-        errorMessage.includes('SqlServer') ||
-        errorMessage.includes('connection') ||
-        e.code === 'ECONNABORTED' ||
-        !e.response;
-      
-      if (isTransientError) {
-        setError('Error de conexión con el servidor. Por favor, intenta de nuevo en unos segundos.');
-        setIsConnectionError(true);
-      } else if (e.response?.status === 401 || e.response?.status === 400) {
+    } catch (e: unknown) {
+      console.error('[Login error]', e);
+
+      // Errors thrown by login() are plain Error objects (no .response)
+      const isAxiosError = (err: unknown): err is { response?: { status?: number; data?: { message?: string; title?: string } }; code?: string; message: string } =>
+        typeof err === 'object' && err !== null && 'message' in err;
+
+      const err = isAxiosError(e) ? e : { message: 'Error desconocido', response: undefined, code: undefined };
+      const httpStatus = err.response?.status;
+      const serverMsg = err.response?.data?.message || err.response?.data?.title || '';
+
+      if (httpStatus === 401 || httpStatus === 400) {
         setError('Credenciales inválidas. Verifica tu email y contraseña.');
-      } else if (e.response?.status >= 500) {
+      } else if (httpStatus !== undefined && httpStatus >= 500) {
         setError('Error en el servidor. Por favor, intenta más tarde.');
         setIsConnectionError(true);
+      } else if (!err.response) {
+        // No HTTP response: network error OR login() threw (bad token)
+        const msg = err.message ?? '';
+        if (msg.includes('Token inválido') || msg.includes('sellerId') || msg.includes('expirado')) {
+          setError(`Error de autenticación: ${msg}`);
+        } else if (err.code === 'ECONNABORTED' || msg.includes('timeout')) {
+          setError('Tiempo de espera agotado. Verifica tu conexión e intenta de nuevo.');
+          setIsConnectionError(true);
+        } else {
+          setError('No se pudo conectar con el servidor. Verifica tu conexión e intenta de nuevo.');
+          setIsConnectionError(true);
+        }
       } else {
-        setError('No se pudo iniciar sesión. Intenta de nuevo.');
+        setError(serverMsg || 'No se pudo iniciar sesión. Intenta de nuevo.');
       }
-      
+
       setIsLoading(false);
     }
   };
@@ -170,7 +177,7 @@ export default function LoginPage() {
                   variant="outline-danger" 
                   size="sm" 
                   className="ms-2"
-                  onClick={handleSubmit as any}
+                  onClick={() => handleSubmit({ preventDefault: () => {} } as React.FormEvent)}
                   disabled={isLoading}
                 >
                   <FiRefreshCw className="me-1" />

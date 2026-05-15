@@ -120,15 +120,22 @@ export default function ClientsPage() {
   const historyTotals = useMemo(() => {
     const sales = historyLookup.data?.sales ?? [];
     const totalSales = sales.reduce((acc, s) => acc + s.totalAmount, 0);
-    const totalPayments = sales
+    const allPayments = sales
       .flatMap((s) => s.payments ?? s.payment ?? [])
-      .filter((p) => p.paymentTypeId === 2)
-      .reduce((acc, p) => acc + p.amount, 0);
+      .filter((p) => p.paymentTypeId === 2);
+
+    const totalPayments = allPayments.reduce((acc, p) => acc + p.amount, 0);
+
+    const lastPaymentDate = allPayments
+      .map((p) => p.date)
+      .filter(Boolean)
+      .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ?? null;
 
     return {
       totalSales,
       totalPayments,
       pending: Math.max(0, totalSales - totalPayments),
+      lastPaymentDate,
     };
   }, [historyLookup.data?.sales]);
 
@@ -164,7 +171,7 @@ export default function ClientsPage() {
           items.push({
             id: `payment-${payment.id}`,
             type: 'payment',
-            date: payment.date,
+            date: payment.date || sale.date,
             saleId: sale.id,
             amount: payment.amount,
             paymentMethod: payment.paymentMethod,
@@ -173,7 +180,13 @@ export default function ClientsPage() {
         });
     });
 
-    return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return items.sort((a, b) => {
+      const diff = new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime();
+      if (diff !== 0) return diff;
+      // Secondary sort: payments after their sale on same date
+      if (a.type !== b.type) return a.type === 'sale' ? -1 : 1;
+      return 0;
+    });
   }, [historyLookup.data?.sales]);
 
   const validateForm = (): boolean => {
@@ -503,7 +516,7 @@ export default function ClientsPage() {
             <>
               {/* Totales */}
               <Row className="g-3 mb-4">
-                <Col md={4}>
+                <Col xs={6} md={3}>
                   <Card className="border-0 shadow-sm h-100">
                     <Card.Body>
                       <small className="text-muted d-block">Total compras</small>
@@ -511,7 +524,7 @@ export default function ClientsPage() {
                     </Card.Body>
                   </Card>
                 </Col>
-                <Col md={4}>
+                <Col xs={6} md={3}>
                   <Card className="border-0 shadow-sm h-100">
                     <Card.Body>
                       <small className="text-muted d-block">Total abonado</small>
@@ -519,11 +532,29 @@ export default function ClientsPage() {
                     </Card.Body>
                   </Card>
                 </Col>
-                <Col md={4}>
+                <Col xs={6} md={3}>
                   <Card className="border-0 shadow-sm h-100">
                     <Card.Body>
                       <small className="text-muted d-block">Saldo pendiente</small>
                       <h4 className="mb-0 text-danger">${historyTotals.pending.toLocaleString()}</h4>
+                    </Card.Body>
+                  </Card>
+                </Col>
+                <Col xs={6} md={3}>
+                  <Card className="border-0 shadow-sm h-100 border-start border-4 border-primary">
+                    <Card.Body>
+                      <small className="text-muted d-block">Último abono</small>
+                      {historyTotals.lastPaymentDate ? (
+                        <span className="fw-semibold text-primary fs-6">
+                          {new Date(historyTotals.lastPaymentDate).toLocaleDateString('es-MX', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                          })}
+                        </span>
+                      ) : (
+                        <span className="text-muted fst-italic fs-6">Sin abonos</span>
+                      )}
                     </Card.Body>
                   </Card>
                 </Col>
