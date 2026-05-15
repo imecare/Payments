@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Alert, Badge, Card, Col, Form, Row, Table } from 'react-bootstrap';
-import { FiCheckCircle, FiClock, FiDollarSign, FiUsers } from 'react-icons/fi';
+import { Alert, Badge, Card, Col, Form, InputGroup, Row, Table } from 'react-bootstrap';
+import { FiCheckCircle, FiClock, FiDollarSign, FiSearch, FiUsers } from 'react-icons/fi';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorAlert from '../components/ErrorAlert';
 import StatCard from '../components/StatCard';
@@ -24,6 +24,7 @@ export default function CommissionistDashboardPage() {
   } = useCommissionistDashboardStats();
 
   const [selectedSaleId, setSelectedSaleId] = useState<number>(0);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const mySales = useMemo(
     () => [...sales].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
@@ -31,6 +32,18 @@ export default function CommissionistDashboardPage() {
   );
 
   const myCustomers = useMemo(() => customers, [customers]);
+
+  // Filtrar ventas por nombre de cliente
+  const filteredSales = useMemo(() => {
+    if (!searchTerm.trim()) return mySales;
+    const term = searchTerm.toLowerCase();
+    return mySales.filter((sale) => {
+      const customer = customers.find((c) => c.id === sale.customerId);
+      if (!customer) return false;
+      const fullName = `${customer.name} ${customer.lastName}`.toLowerCase();
+      return fullName.includes(term);
+    });
+  }, [mySales, customers, searchTerm]);
 
   const paidSales = useMemo(() => mySales.filter((sale) => sale.isPaid), [mySales]);
 
@@ -175,23 +188,22 @@ export default function CommissionistDashboardPage() {
           <Card className="mb-4">
             <Card.Header className="bg-white d-flex justify-content-between align-items-center gap-3">
               <h6 className="mb-0">Mis Ventas</h6>
-              <Form.Select
-                value={selectedSaleId || ''}
-                onChange={(e) => setSelectedSaleId(Number(e.target.value))}
-                style={{ maxWidth: 280 }}
-              >
-                <option value="">Selecciona una venta para ver abonos</option>
-                {mySales.map((sale) => (
-                  <option key={sale.id} value={sale.id}>
-                    Venta #{sale.id} - {getCustomerName(sale.customerId)}
-                  </option>
-                ))}
-              </Form.Select>
+              <InputGroup style={{ maxWidth: 280 }}>
+                <InputGroup.Text>
+                  <FiSearch />
+                </InputGroup.Text>
+                <Form.Control
+                  type="text"
+                  placeholder="Buscar por cliente..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </InputGroup>
             </Card.Header>
             <Card.Body className="p-0">
-              {mySales.length === 0 ? (
+              {filteredSales.length === 0 ? (
                 <Alert variant="light" className="m-3 mb-0 text-center">
-                  No tienes ventas registradas.
+                  {searchTerm ? 'No se encontraron ventas con ese cliente.' : 'No tienes ventas registradas.'}
                 </Alert>
               ) : (
                 <Table responsive hover className="mb-0 align-middle table-responsive-cards">
@@ -206,8 +218,16 @@ export default function CommissionistDashboardPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {mySales.map((sale) => (
-                      <tr key={sale.id}>
+                    {filteredSales.map((sale) => (
+                      <tr 
+                        key={sale.id}
+                        onClick={() => setSelectedSaleId(sale.id)}
+                        style={{ 
+                          cursor: 'pointer',
+                          backgroundColor: selectedSaleId === sale.id ? '#e7f1ff' : undefined
+                        }}
+                        className={selectedSaleId === sale.id ? 'table-primary' : ''}
+                      >
                         <td data-label="ID">#{sale.id}</td>
                         <td data-label="Cliente">{getCustomerName(sale.customerId)}</td>
                         <td data-label="Descripción" title={sale.productDescription || 'Sin descripcion'}>
@@ -231,14 +251,19 @@ export default function CommissionistDashboardPage() {
 
           <Card>
             <Card.Header className="bg-white">
-              <h6 className="mb-0">Historial de abonos de la venta seleccionada</h6>
+              <h6 className="mb-0">
+                {selectedSale 
+                  ? `Historial de abonos - Venta #${selectedSale.id} (${getCustomerName(selectedSale.customerId)})`
+                  : 'Historial de abonos'
+                }
+              </h6>
             </Card.Header>
             <Card.Body>
               {selectedSale ? (
                 <PaymentTable saleId={selectedSale.id} totalAmount={selectedSale.totalAmount} />
               ) : (
                 <Alert variant="light" className="mb-0">
-                  Selecciona una venta para ver su historial de pagos y el saldo actual.
+                  Haz clic en una venta de la tabla para ver su historial de pagos y el saldo actual.
                 </Alert>
               )}
             </Card.Body>

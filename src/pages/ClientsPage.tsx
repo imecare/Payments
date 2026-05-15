@@ -14,6 +14,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorAlert from '../components/ErrorAlert';
 import { useCompanyContext } from '../features/company/hooks/useCompanyContext';
 import { usePublicHistoryLookup } from '../features/sales/hooks/usePublicHistory';
+import { useAuth } from '../auth/AuthContext';
 
 const emptyCustomer: CreateCustomerDTO = { name: '', lastName: '', rfc: '', phone: '', sellerId: 0 };
 const mapCustomerToForm = (c: Customer): CreateCustomerDTO => ({
@@ -25,7 +26,11 @@ const mapCustomerToForm = (c: Customer): CreateCustomerDTO => ({
 });
 
 export default function ClientsPage() {
-  const { data: customers = [], isLoading, error, refetch } = useCustomers();
+  const { isCommissionist, user } = useAuth();
+  const commissionistSellerId = isCommissionist && user?.sellerId ? user.sellerId : null;
+  // Comisionista usa 'mine' para obtener solo sus clientes; admin usa 'all'
+  const customerScope = isCommissionist ? 'mine' : 'all';
+  const { data: customers = [], isLoading, error, refetch } = useCustomers(customerScope);
   const { data: sellers = [], isLoading: sellersLoading } = useSellers();
   const { data: companyData } = useCompanyContext();
   const createMutation = useCreateCustomer();
@@ -41,7 +46,7 @@ export default function ClientsPage() {
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
-  const [filterSellerId, setFilterSellerId] = useState<number | null>(null);
+  const [filterSellerId, setFilterSellerId] = useState<number | null>(commissionistSellerId);
 
   const companyCode = companyData?.companyCode || companyData?.tenantId || '';
   const baseUrl = window.location.origin;
@@ -55,9 +60,10 @@ export default function ClientsPage() {
   const filteredCustomers = useMemo(() => {
     let result = customers;
     
-    // Filtrar por vendedor
-    if (filterSellerId !== null) {
-      result = result.filter((c) => c.sellerId === filterSellerId);
+    // Comisionista: siempre filtra por su propio sellerId
+    const effectiveSellerId = commissionistSellerId ?? filterSellerId;
+    if (effectiveSellerId !== null) {
+      result = result.filter((c) => c.sellerId === effectiveSellerId);
     }
     
     // Filtrar por búsqueda
@@ -239,7 +245,12 @@ export default function ClientsPage() {
             Gestiona los clientes y sus datos de contacto
           </p>
         </div>
-        <Button variant="primary" onClick={() => handleOpenModal()}>
+        <Button variant="primary" onClick={() => {
+          handleOpenModal();
+          if (commissionistSellerId) {
+            setFormData(prev => ({ ...prev, sellerId: commissionistSellerId }));
+          }
+        }}>
           <FiPlus className="me-2" />
           Agregar Cliente
         </Button>
@@ -261,7 +272,7 @@ export default function ClientsPage() {
             />
           </InputGroup>
         </Col>
-        {customerSellers.length > 1 && (
+        {!isCommissionist && customerSellers.length > 1 && (
           <Col md={3}>
             <Form.Select
               value={filterSellerId ?? ''}
@@ -443,25 +454,27 @@ export default function ClientsPage() {
               </Col>
             </Row>
 
-            <Form.Group className="mb-3">
-              <Form.Label>Vendedor Asignado *</Form.Label>
-              <Form.Select
-                value={formData.sellerId}
-                onChange={(e) => setFormData({ ...formData, sellerId: Number(e.target.value) })}
-                isInvalid={!!formErrors.sellerId}
-                disabled={sellersLoading}
-              >
-                <option value={0}>Selecciona un vendedor</option>
-                {sellers.map((seller) => (
-                  <option key={seller.id} value={seller.id}>
-                    {seller.name} {seller.lastName}
-                  </option>
-                ))}
-              </Form.Select>
-              <Form.Control.Feedback type="invalid">
-                {formErrors.sellerId}
-              </Form.Control.Feedback>
-            </Form.Group>
+            {!isCommissionist && (
+              <Form.Group className="mb-3">
+                <Form.Label>Vendedor Asignado *</Form.Label>
+                <Form.Select
+                  value={formData.sellerId}
+                  onChange={(e) => setFormData({ ...formData, sellerId: Number(e.target.value) })}
+                  isInvalid={!!formErrors.sellerId}
+                  disabled={sellersLoading}
+                >
+                  <option value={0}>Selecciona un vendedor</option>
+                  {sellers.map((seller) => (
+                    <option key={seller.id} value={seller.id}>
+                      {seller.name} {seller.lastName}
+                    </option>
+                  ))}
+                </Form.Select>
+                <Form.Control.Feedback type="invalid">
+                  {formErrors.sellerId}
+                </Form.Control.Feedback>
+              </Form.Group>
+            )}
           </Modal.Body>
           <Modal.Footer>
             <Button variant="secondary" onClick={handleCloseModal} disabled={isPending}>

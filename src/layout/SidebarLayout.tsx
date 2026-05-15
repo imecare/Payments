@@ -63,12 +63,12 @@ export default function SidebarLayout() {
     ...(isCommissionist
       ? [{ to: '/mi-cartera', icon: <FiHome size={18} />, label: 'Mi Cartera' }]
       : []),
-    { to: '/sales', icon: <FiShoppingCart size={18} />, label: 'Ventas' },
+    ...(isSuperAdmin ? [{ to: '/sales', icon: <FiShoppingCart size={18} />, label: 'Ventas' }] : []),
     ...(isSuperAdmin ? [{ to: '/abonos', icon: <FiCreditCard size={18} />, label: 'Abonos' }] : []),
     ...(isSuperAdmin
       ? [{ to: '/payments', icon: <FiDollarSign size={18} />, label: 'Registrar Abono' }]
       : []),
-    ...(isSuperAdmin ? [{ to: '/clients', icon: <FiUsers size={18} />, label: 'Clientes' }] : []),
+    ...(isSuperAdmin || isCommissionist ? [{ to: '/clients', icon: <FiUsers size={18} />, label: 'Clientes' }] : []),
     ...(isSuperAdmin ? [{ to: '/sellers', icon: <FiUserCheck size={18} />, label: 'Vendedores' }] : []),
   ];
 
