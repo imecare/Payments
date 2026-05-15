@@ -13,14 +13,13 @@ try {
 
 if (!tscFailed) {
   try { execSync('git add -A', opts); } catch(e) { console.error('git add:', e.message); }
-  const msg = `fix: improve login error handling and add last payment date card
+  const msg = `feat: add last payment date card to history pages
 
-- LoginPage: distinguish HTTP errors from JS errors (login() throws)
-- Show specific message when token is invalid/expired instead of connection error
-- Fix retry button: pass proper FormEvent instead of casting
-- ClientsPage: add Ultimo abono 4th summary card in client history modal
-- History sort: payments fallback to parent sale date when payment.date is null
-- Secondary stable sort: sale before payment on same date
+- ConsultaPage (public link): add Ultimo abono 4th summary card
+- ClientsPage (admin modal): add Ultimo abono 4th summary card
+- Both use xs=6 md=3 grid for 4 columns (responsive on mobile)
+- Sort client history by date with stable secondary sort
+- LoginPage: improved error handling (no more false connection errors)
 
 Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>`;
   try {

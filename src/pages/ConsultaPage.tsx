@@ -114,16 +114,22 @@ export default function ConsultaPage() {
 
   const totals = useMemo(() => {
     const totalSales = sales.reduce((acc, s) => acc + s.totalAmount, 0);
-    // Solo sumar pagos de tipo abono (paymentTypeId = 2)
-    const totalPayments = sales
+    const allPayments = sales
       .flatMap((s) => s.payments ?? s.payment ?? [])
-      .filter((p) => p.paymentTypeId === 2)
-      .reduce((acc, p) => acc + p.amount, 0);
+      .filter((p) => p.paymentTypeId === 2);
+
+    const totalPayments = allPayments.reduce((acc, p) => acc + p.amount, 0);
+
+    const lastPaymentDate = allPayments
+      .map((p) => p.date)
+      .filter(Boolean)
+      .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ?? null;
 
     return {
       totalSales,
       totalPayments,
       pending: Math.max(0, totalSales - totalPayments),
+      lastPaymentDate,
     };
   }, [sales]);
 
@@ -294,7 +300,7 @@ export default function ConsultaPage() {
           {lookup.isSuccess && (
             <>
               <Row className="g-3 mb-4">
-                <Col md={4}>
+                <Col xs={6} md={3}>
                   <Card className="border-0 shadow-sm h-100">
                     <Card.Body>
                       <small className="text-muted d-block">Total compras</small>
@@ -302,7 +308,7 @@ export default function ConsultaPage() {
                     </Card.Body>
                   </Card>
                 </Col>
-                <Col md={4}>
+                <Col xs={6} md={3}>
                   <Card className="border-0 shadow-sm h-100">
                     <Card.Body>
                       <small className="text-muted d-block">Total abonado</small>
@@ -310,11 +316,29 @@ export default function ConsultaPage() {
                     </Card.Body>
                   </Card>
                 </Col>
-                <Col md={4}>
+                <Col xs={6} md={3}>
                   <Card className="border-0 shadow-sm h-100">
                     <Card.Body>
                       <small className="text-muted d-block">Saldo pendiente</small>
                       <h4 className="mb-0 text-danger">${totals.pending.toLocaleString()}</h4>
+                    </Card.Body>
+                  </Card>
+                </Col>
+                <Col xs={6} md={3}>
+                  <Card className="border-0 shadow-sm h-100 border-start border-4 border-primary">
+                    <Card.Body>
+                      <small className="text-muted d-block">Último abono</small>
+                      {totals.lastPaymentDate ? (
+                        <span className="fw-semibold text-primary fs-6">
+                          {new Date(totals.lastPaymentDate).toLocaleDateString('es-MX', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                          })}
+                        </span>
+                      ) : (
+                        <span className="text-muted fst-italic fs-6">Sin abonos</span>
+                      )}
                     </Card.Body>
                   </Card>
                 </Col>
