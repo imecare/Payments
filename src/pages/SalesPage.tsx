@@ -8,6 +8,7 @@ import {
   FiTrendingUp, FiPercent, FiEye, FiEdit2, FiTrash2
 } from 'react-icons/fi';
 import ResponsiveTable, { type Column } from '../components/ResponsiveTable';
+import SearchableSelect, { type SelectOption } from '../components/SearchableSelect';
 import { useSales, useCreateSale, useUpdateSale, useDeleteSale, useMarkCommissionPaid } from '../features/sales/hooks/useSales';
 import { usePaymentsBySale, calculateSaleBalance } from '../features/payments/hooks/usePayments';
 import { useCustomers } from '../features/customers/hooks/useCustomers';
@@ -670,22 +671,22 @@ export default function SalesPage() {
               <Col md={6}>
                 <Form.Group className="mb-3">
                   <Form.Label>Cliente *</Form.Label>
-                  <Form.Select
+                  <SearchableSelect
+                    options={customers.map((c): SelectOption => ({
+                      value: c.id,
+                      label: `${c.name} ${c.lastName}`,
+                      sublabel: c.phone,
+                    }))}
                     value={formData.customerId}
-                    onChange={(e) => setFormData({ ...formData, customerId: Number(e.target.value) })}
+                    onChange={(v) => setFormData({ ...formData, customerId: v })}
+                    placeholder="Buscar por nombre o teléfono..."
+                    emptyLabel={customersLoading ? 'Cargando clientes...' : 'Selecciona un cliente'}
                     isInvalid={!!formErrors.customerId}
                     disabled={customersLoading}
-                  >
-                    <option value={0}>Selecciona un cliente</option>
-                    {customers.map((customer) => (
-                      <option key={customer.id} value={customer.id}>
-                        {customer.name} {customer.lastName}
-                      </option>
-                    ))}
-                  </Form.Select>
-                  <Form.Control.Feedback type="invalid">
-                    {formErrors.customerId}
-                  </Form.Control.Feedback>
+                  />
+                  {formErrors.customerId && (
+                    <div className="invalid-feedback d-block">{formErrors.customerId}</div>
+                  )}
                 </Form.Group>
               </Col>
               <Col md={6}>
