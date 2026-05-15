@@ -18,14 +18,18 @@ import ErrorAlert from '../components/ErrorAlert';
 import ConfirmModal from '../components/ConfirmModal';
 import StatCard from '../components/StatCard';
 
-const emptySale: CreateSaleDTO = { 
+/** Devuelve la fecha actual en formato YYYY-MM-DD para el input type="date" */
+const todayISO = () => new Date().toISOString().split('T')[0];
+
+const emptySale = (): CreateSaleDTO => ({
   customerId: 0,
   sellerId: undefined,
   totalAmount: 0,
   costPrice: 0,
   productDescription: '',
   commissionAmount: 0,
-};
+  date: todayISO(),
+});
 
 // Componente para mostrar detalles de una venta
 function SaleDetailModal({ 
@@ -211,7 +215,7 @@ export default function SalesPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
-  const [formData, setFormData] = useState<CreateSaleDTO>(emptySale);
+  const [formData, setFormData] = useState<CreateSaleDTO>(() => emptySale());
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'paid'>('all');
   const [filterSellerId, setFilterSellerId] = useState<number>(0);
@@ -291,7 +295,7 @@ export default function SalesPage() {
   // Handlers
   const handleOpenModal = useCallback(() => {
     setEditingId(null);
-    setFormData(emptySale);
+    setFormData(emptySale());
     setFormErrors({});
     setShowModal(true);
   }, []);
@@ -305,7 +309,7 @@ export default function SalesPage() {
       costPrice: sale.costPrice,
       productDescription: sale.productDescription ?? '',
       commissionAmount: sale.commissionAmount,
-      date: sale.date,
+      date: sale.date ? sale.date.split('T')[0] : todayISO(),
     });
     setFormErrors({});
     setShowModal(true);
@@ -314,7 +318,7 @@ export default function SalesPage() {
   const handleCloseModal = useCallback(() => {
     setShowModal(false);
     setEditingId(null);
-    setFormData(emptySale);
+    setFormData(emptySale());
     setFormErrors({});
   }, []);
 
@@ -706,16 +710,34 @@ export default function SalesPage() {
               </Col>
             </Row>
 
-            <Form.Group className="mb-3">
-              <Form.Label>Descripción del producto</Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={2}
-                placeholder="Descripción detallada de los productos..."
-                value={formData.productDescription}
-                onChange={(e) => setFormData({ ...formData, productDescription: e.target.value })}
-              />
-            </Form.Group>
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Fecha de la venta</Form.Label>
+                  <Form.Control
+                    type="date"
+                    value={formData.date ?? todayISO()}
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    max={todayISO()}
+                  />
+                  <Form.Text className="text-muted">
+                    Por defecto es el día de hoy.
+                  </Form.Text>
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Descripción del producto</Form.Label>
+                  <Form.Control
+                    as="textarea"
+                    rows={2}
+                    placeholder="Descripción detallada de los productos..."
+                    value={formData.productDescription}
+                    onChange={(e) => setFormData({ ...formData, productDescription: e.target.value })}
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
 
             <Row>
               <Col md={4}>
