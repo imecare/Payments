@@ -49,19 +49,32 @@ export default function CommissionistDashboardPage() {
 
   const paidSales = useMemo(() => mySales.filter((sale) => sale.isPaid), [mySales]);
 
-  const pendingCommissions = useMemo(
+  // Comisiones listas para pago: ventas liquidadas (isPaid=true) con comisión aún no pagada
+  const readyToPayCommissions = useMemo(
     () => mySales.filter((sale) => sale.isPaid && !sale.isCommissionPaid),
     [mySales]
   );
 
+  // Comisiones pendientes: ventas NO liquidadas (el cliente aún no termina de pagar)
+  const pendingSalesCommissions = useMemo(
+    () => mySales.filter((sale) => !sale.isPaid && !sale.isCommissionPaid),
+    [mySales]
+  );
+
+  // Comisiones ya pagadas al vendedor
   const paidCommissions = useMemo(
     () => mySales.filter((sale) => sale.isCommissionPaid),
     [mySales]
   );
 
-  const totalPendingCommissions = useMemo(
-    () => pendingCommissions.reduce((sum, sale) => sum + sale.commissionAmount, 0),
-    [pendingCommissions]
+  const totalReadyToPayCommissions = useMemo(
+    () => readyToPayCommissions.reduce((sum, sale) => sum + sale.commissionAmount, 0),
+    [readyToPayCommissions]
+  );
+
+  const totalPendingSalesCommissions = useMemo(
+    () => pendingSalesCommissions.reduce((sum, sale) => sum + sale.commissionAmount, 0),
+    [pendingSalesCommissions]
   );
 
   const totalPaidCommissions = useMemo(
@@ -171,8 +184,9 @@ export default function CommissionistDashboardPage() {
         </Col>
         <Col sm={6} lg={3}>
           <StatCard
-            title="Ventas Liquidadas"
-            value={stats?.paidSales ?? paidSales.length}
+            title="Comisiones Listas para Pago"
+            value={`$${totalReadyToPayCommissions.toLocaleString()}`}
+            subtitle={`${readyToPayCommissions.length} ventas liquidadas`}
             icon={<FiCheckCircle />}
             variant="success"
           />
@@ -180,8 +194,8 @@ export default function CommissionistDashboardPage() {
         <Col sm={6} lg={3}>
           <StatCard
             title="Comisiones Pendientes"
-            value={`$${(stats?.pendingCommissionsAmount ?? totalPendingCommissions).toLocaleString()}`}
-            subtitle={`${stats?.pendingCommissionsCount ?? pendingCommissions.length} ventas`}
+            value={`$${totalPendingSalesCommissions.toLocaleString()}`}
+            subtitle={`${pendingSalesCommissions.length} ventas no liquidadas`}
             icon={<FiClock />}
             variant="warning"
           />
@@ -292,11 +306,15 @@ export default function CommissionistDashboardPage() {
                   {
                     key: 'status',
                     header: 'Estado',
-                    render: (sale) => (
-                      <Badge bg={sale.isCommissionPaid ? 'success' : 'secondary'}>
-                        Comisión {sale.isCommissionPaid ? 'pagada' : 'pendiente'}
-                      </Badge>
-                    ),
+                    render: (sale) => {
+                      if (sale.isCommissionPaid) {
+                        return <Badge bg="info">Comisión pagada</Badge>;
+                      }
+                      if (sale.isPaid) {
+                        return <Badge bg="success">Comisión lista para pago</Badge>;
+                      }
+                      return <Badge bg="secondary">Comisión pendiente</Badge>;
+                    },
                   },
                 ]}
               />
