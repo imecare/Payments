@@ -4,6 +4,7 @@ import axios, { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'ax
 // API CONFIGURATION
 // ============================================
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? '';
+const DEBUG_API = import.meta.env.DEV; // Solo en desarrollo
 
 const axiosClient = axios.create({
   baseURL: API_BASE_URL,
@@ -20,9 +21,20 @@ axiosClient.interceptors.request.use(
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    if (DEBUG_API) {
+      console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`, {
+        data: config.data,
+        params: config.params,
+      });
+    }
+    
     return config;
   },
   (error: AxiosError) => {
+    if (DEBUG_API) {
+      console.error('[API Request Error]', error);
+    }
     return Promise.reject(error);
   }
 );
@@ -31,8 +43,24 @@ axiosClient.interceptors.request.use(
 // RESPONSE INTERCEPTOR
 // ============================================
 axiosClient.interceptors.response.use(
-  (response: AxiosResponse) => response,
+  (response: AxiosResponse) => {
+    if (DEBUG_API) {
+      console.log(`[API Response] ${response.config.method?.toUpperCase()} ${response.config.url}`, {
+        status: response.status,
+        data: response.data,
+      });
+    }
+    return response;
+  },
   (error: AxiosError) => {
+    if (DEBUG_API) {
+      console.error(`[API Error] ${error.config?.method?.toUpperCase()} ${error.config?.url}`, {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+      });
+    }
+    
     if (error.response?.status === 401) {
       // Dispatch event so AuthContext handles logout + navigation via React Router
       // instead of doing a hard browser redirect that clears all React state.

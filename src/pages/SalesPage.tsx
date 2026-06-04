@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { 
   Button, Table, Modal, Form, Row, Col, Badge, InputGroup, 
   ProgressBar, Card, Alert 
@@ -296,6 +296,11 @@ export default function SalesPage() {
   const [filterSellerId, setFilterSellerId] = useState<number>(0);
   const [sortDate, setSortDate] = useState<'desc' | 'asc'>('desc');
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [lastSavedInfo, setLastSavedInfo] = useState<{ id: number; isEdit: boolean } | null>(null);
+  
+  // Ref para prevenir doble envío
+  const isSubmittingRef = useRef(false);
 
   // Filtered sales — se calcula ANTES que stats para que las tarjetas reflejen los filtros
   const filteredSales = useMemo(() => {
@@ -391,6 +396,11 @@ export default function SalesPage() {
   }, []);
 
   const handleCloseModal = useCallback(() => {
+    // Solo permitir cerrar si no está guardando
+    if (isSubmittingRef.current) {
+      console.warn('[SalesPage] No se puede cerrar el modal mientras se guarda');
+      return;
+    }
     setShowModal(false);
     setEditingId(null);
     setFormData(emptySale());
@@ -436,17 +446,49 @@ export default function SalesPage() {
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
+    // Protección contra doble envío
+    if (isSubmittingRef.current) {
+      console.warn('[SalesPage] Intento de doble envío bloqueado');
+      return;
+    }
+    
     if (!validateForm()) return;
 
+    isSubmittingRef.current = true;
+    const isEditing = !!editingId;
+    const currentEditingId = editingId;
+    console.log('[SalesPage] Iniciando guardado...', { editingId, formData });
+    
     try {
-      if (editingId) {
-        await updateMutation.mutateAsync({ id: editingId, data: formData });
+      let savedId: number;
+      if (isEditing && currentEditingId) {
+        console.log('[SalesPage] Actualizando venta:', currentEditingId);
+        await updateMutation.mutateAsync({ id: currentEditingId, data: formData });
+        savedId = currentEditingId;
+        console.log('[SalesPage] Venta actualizada exitosamente');
       } else {
-        await createMutation.mutateAsync(formData);
+        console.log('[SalesPage] Creando nueva venta');
+        savedId = await createMutation.mutateAsync(formData);
+        console.log('[SalesPage] Venta creada exitosamente, ID:', savedId);
       }
-      handleCloseModal();
+      
+      // Resetear el ref ANTES de cerrar el modal
+      isSubmittingRef.current = false;
+      
+      // Cerrar modal de edición y mostrar éxito
+      setShowModal(false);
+      setEditingId(null);
+      setFormData(emptySale());
+      setFormErrors({});
+      
+      // Mostrar modal de éxito
+      setLastSavedInfo({ id: savedId, isEdit: isEditing });
+      setShowSuccessModal(true);
+      
     } catch (err) {
-      console.error('Error saving sale:', err);
+      console.error('[SalesPage] Error al guardar venta:', err);
+      isSubmittingRef.current = false;
+      // No cerramos el modal en caso de error para que el usuario pueda reintentar
     }
   };
 
@@ -739,8 +781,15 @@ export default function SalesPage() {
       />
 
       {/* Create/Edit Sale Modal */}
-      <Modal show={showModal} onHide={handleCloseModal} centered size="lg">
-        <Modal.Header closeButton>
+      <Modal 
+        show={showModal} 
+        onHide={handleCloseModal} 
+        centered 
+        size="lg"
+        backdrop={createMutation.isPending || updateMutation.isPending ? 'static' : true}
+        keyboard={!(createMutation.isPending || updateMutation.isPending)}
+      >
+        <Modal.Header closeButton={!(createMutation.isPending || updateMutation.isPending)}>
           <Modal.Title>{editingId ? `Editar Venta #${editingId}` : 'Nueva Venta'}</Modal.Title>
         </Modal.Header>
         <Form onSubmit={handleSave} noValidate>
@@ -950,6 +999,35 @@ export default function SalesPage() {
       {deleteMutation.isError && (
         <ErrorAlert error={deleteMutation.error} title="Error al eliminar venta" />
       )}
+
+      {/* Success Modal */}
+      <Modal show={showSuccessModal} onHide={() => setShowSuccessModal(false)} centered>
+        <Modal.Header closeButton className="border-0 pb-0">
+          <Modal.Title className="text-success">
+            <FiCheckCircle className="me-2" />
+            {lastSavedInfo?.isEdit ? 'Venta actualizada' : 'Venta registrada'}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="text-center py-4">
+          <div className="mb-3">
+            <FiCheckCircle size={64} className="text-success" />
+          </div>
+          <h5>
+            {lastSavedInfo?.isEdit 
+              ? `La venta #${lastSavedInfo.id} ha sido actualizada correctamente`
+              : `Nueva venta #${lastSavedInfo?.id} registrada exitosamente`
+            }
+          </h5>
+          <p className="text-muted mb-0">
+            Los datos han sido guardados en el sistema.
+          </p>
+        </Modal.Body>
+        <Modal.Footer className="border-0 pt-0 justify-content-center">
+          <Button variant="success" onClick={() => setShowSuccessModal(false)}>
+            Aceptar
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 }
