@@ -29,11 +29,31 @@ export default function CommissionistDashboardPage() {
   const [searchTerm, setSearchTerm] = useState('');
 
   const mySales = useMemo(
-    () => [...sales].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
-    [sales]
+    () => [...sales].sort((a, b) => {
+      // Primero ordenar por nombre de cliente (alfabético)
+      const customerA = customers.find((c) => c.id === a.customerId);
+      const customerB = customers.find((c) => c.id === b.customerId);
+      const nameA = customerA ? `${customerA.name} ${customerA.lastName}`.toLowerCase() : '';
+      const nameB = customerB ? `${customerB.name} ${customerB.lastName}`.toLowerCase() : '';
+      const nameComparison = nameA.localeCompare(nameB);
+      if (nameComparison !== 0) return nameComparison;
+      // Si mismo cliente, ordenar por número de venta (ID)
+      return a.id - b.id;
+    }),
+    [sales, customers]
   );
 
   const myCustomers = useMemo(() => customers, [customers]);
+
+  // Calcular deuda total por cliente
+  const customerDebtMap = useMemo(() => {
+    const debtMap = new Map<number, number>();
+    sales.forEach((sale) => {
+      const currentDebt = debtMap.get(sale.customerId) ?? 0;
+      debtMap.set(sale.customerId, currentDebt + (sale.remainingBalance ?? 0));
+    });
+    return debtMap;
+  }, [sales]);
 
   // Filtrar ventas por nombre de cliente
   const filteredSales = useMemo(() => {
@@ -238,6 +258,19 @@ export default function CommissionistDashboardPage() {
                     key: 'phone',
                     header: 'Teléfono',
                     render: (c) => c.phone,
+                  },
+                  {
+                    key: 'debt',
+                    header: 'Deuda Total',
+                    className: 'text-end',
+                    render: (c) => {
+                      const debt = customerDebtMap.get(c.id) ?? 0;
+                      return (
+                        <span className={debt > 0 ? 'text-danger fw-bold' : 'text-success'}>
+                          ${debt.toLocaleString()}
+                        </span>
+                      );
+                    },
                   },
                 ]}
               />
