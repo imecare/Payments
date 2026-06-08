@@ -288,6 +288,9 @@ export default function SalesPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showPayCommissionModal, setShowPayCommissionModal] = useState(false);
+  const [saleForCommission, setSaleForCommission] = useState<Sale | null>(null);
+  const [commissionNote, setCommissionNote] = useState('');
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
   const [formData, setFormData] = useState<CreateSaleDTO>(() => emptySale());
@@ -523,6 +526,29 @@ export default function SalesPage() {
     }
   };
 
+  // Manejar pago de comisión desde la tabla
+  const handleOpenPayCommissionModal = (sale: Sale) => {
+    setSaleForCommission(sale);
+    setCommissionNote('');
+    setShowPayCommissionModal(true);
+  };
+
+  const handleConfirmPayCommission = async () => {
+    if (!saleForCommission) return;
+    try {
+      await markCommissionPaidMutation.mutateAsync({ 
+        saleId: saleForCommission.id, 
+        paid: true, 
+        note: commissionNote || undefined 
+      });
+      setShowPayCommissionModal(false);
+      setSaleForCommission(null);
+      setCommissionNote('');
+    } catch (err) {
+      console.error('Error paying commission:', err);
+    }
+  };
+
   // Render
   if (isLoading) {
     return <LoadingSpinner message="Cargando ventas..." />;
@@ -747,6 +773,19 @@ export default function SalesPage() {
             isActions: true,
             render: (s) => (
               <>
+                {/* Botón pagar comisión - solo si venta liquidada y comisión pendiente */}
+                {s.isPaid && !s.isCommissionPaid && (
+                  <Button
+                    size="sm"
+                    variant="success"
+                    onClick={() => handleOpenPayCommissionModal(s)}
+                    aria-label="Pagar comisión"
+                    title="Pagar comisión al vendedor"
+                    className="me-1"
+                  >
+                    <FiDollarSign />
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   variant="outline-secondary"
@@ -988,6 +1027,48 @@ export default function SalesPage() {
         onHide={() => { setShowDeleteModal(false); setSaleToDelete(null); }}
         isLoading={deleteMutation.isPending}
       />
+
+      {/* Pay Commission Modal */}
+      <Modal show={showPayCommissionModal} onHide={() => setShowPayCommissionModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Pagar comisión al vendedor</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {saleForCommission && (
+            <>
+              <p>
+                ¿Confirmas que se pagó la comisión de <strong>${saleForCommission.commissionAmount.toLocaleString()}</strong> al vendedor por la venta #{saleForCommission.id}?
+              </p>
+              <p className="text-muted small">
+                Cliente: {getCustomerName(saleForCommission.customerId)}<br />
+                Vendedor: {getSellerName(saleForCommission.sellerId)}
+              </p>
+              <Form.Group>
+                <Form.Label>Nota (opcional)</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  rows={2}
+                  placeholder="Ej: Pagado en efectivo, transferencia, etc."
+                  value={commissionNote}
+                  onChange={(e) => setCommissionNote(e.target.value)}
+                />
+              </Form.Group>
+            </>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowPayCommissionModal(false)}>
+            Cancelar
+          </Button>
+          <Button 
+            variant="success"
+            onClick={handleConfirmPayCommission}
+            disabled={markCommissionPaidMutation.isPending}
+          >
+            {markCommissionPaidMutation.isPending ? 'Procesando...' : 'Confirmar pago'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
 
       {/* Error Alerts */}
       {createMutation.isError && (
