@@ -533,20 +533,23 @@ export default function SalesPage() {
     setShowPayCommissionModal(true);
   };
 
-  const handleConfirmPayCommission = async () => {
+  const handleConfirmPayCommission = () => {
     if (!saleForCommission) return;
-    try {
-      await markCommissionPaidMutation.mutateAsync({ 
-        saleId: saleForCommission.id, 
-        paid: true, 
-        note: commissionNote || undefined 
-      });
-      setShowPayCommissionModal(false);
-      setSaleForCommission(null);
-      setCommissionNote('');
-    } catch (err) {
-      console.error('Error paying commission:', err);
-    }
+    
+    const saleId = saleForCommission.id;
+    const note = commissionNote || undefined;
+    
+    // Cerrar modal inmediatamente para mejor UX
+    setShowPayCommissionModal(false);
+    setSaleForCommission(null);
+    setCommissionNote('');
+    
+    // Ejecutar la mutación (se refrescará la tabla automáticamente)
+    markCommissionPaidMutation.mutate({ 
+      saleId, 
+      paid: true, 
+      note 
+    });
   };
 
   // Render

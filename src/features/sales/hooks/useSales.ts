@@ -3,6 +3,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { salesApi, type CreateSaleDTO } from '../api/salesApi';
+import type { Sale } from '../../../shared/types';
 
 // ============================================
 // QUERY KEYS
@@ -85,7 +86,40 @@ export function useMarkCommissionPaid() {
   return useMutation({
     mutationFn: ({ saleId, paid = true, note }: { saleId: number; paid?: boolean; note?: string }) =>
       salesApi.markCommissionPaid(saleId, paid, note),
-    onSuccess: (_, { saleId }) => {
+    onMutate: async ({ saleId, paid }) => {
+      // Cancelar queries en progreso
+      await queryClient.cancelQueries({ queryKey: saleKeys.all });
+      
+      // Snapshot del estado anterior
+      const previousSales = queryClient.getQueryData(saleKeys.lists());
+      const previousMineSales = queryClient.getQueryData(saleKeys.lists('mine'));
+      
+      // Actualización optimista - actualizar todas las listas de ventas
+      const updateSalesCache = (oldSales: Sale[] | undefined) => {
+        if (!oldSales) return oldSales;
+        return oldSales.map((sale) =>
+          sale.id === saleId
+            ? { ...sale, isCommissionPaid: paid, commissionPaidAt: paid ? new Date().toISOString() : null }
+            : sale
+        );
+      };
+      
+      queryClient.setQueryData(saleKeys.lists(), updateSalesCache);
+      queryClient.setQueryData(saleKeys.lists('mine'), updateSalesCache);
+      
+      return { previousSales, previousMineSales };
+    },
+    onError: (_err, _variables, context) => {
+      // Revertir en caso de error
+      if (context?.previousSales) {
+        queryClient.setQueryData(saleKeys.lists(), context.previousSales);
+      }
+      if (context?.previousMineSales) {
+        queryClient.setQueryData(saleKeys.lists('mine'), context.previousMineSales);
+      }
+    },
+    onSettled: (_, __, { saleId }) => {
+      // Refrescar datos del servidor
       queryClient.invalidateQueries({ queryKey: saleKeys.all });
       queryClient.invalidateQueries({ queryKey: saleKeys.detail(saleId) });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
