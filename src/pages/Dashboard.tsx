@@ -112,6 +112,32 @@ function Dashboard() {
     };
   }, [sales]);
 
+  const abonosChartData = useMemo(() => {
+    const currentMonth = new Date().getMonth();
+    const last6Months = Array.from({ length: 6 }, (_, i) => {
+      const monthIndex = (currentMonth - 5 + i + 12) % 12;
+      return monthNames[monthIndex];
+    });
+    const allPayments = sales.flatMap(s => s.payments ?? s.payment ?? []);
+    const abonosByMonth = Array.from({ length: 6 }, (_, i) => {
+      const monthIndex = (currentMonth - 5 + i + 12) % 12;
+      return allPayments
+        .filter(p => p.paymentTypeId === 2 && new Date(p.date).getMonth() === monthIndex)
+        .reduce((sum, p) => sum + p.amount, 0);
+    });
+    return {
+      labels: last6Months,
+      datasets: [{
+        label: 'Abonos cobrados',
+        data: abonosByMonth,
+        borderColor: 'rgb(13, 110, 253)',
+        backgroundColor: 'rgba(13, 110, 253, 0.2)',
+        fill: true,
+        tension: 0.4,
+      }],
+    };
+  }, [sales]);
+
   const statusChartData = useMemo(() => ({
     labels: ['Liquidadas', 'Pendientes'],
     datasets: [{
@@ -233,7 +259,7 @@ function Dashboard() {
       
       {/* Charts Row */}
       <Row className="g-4 mb-4">
-        <Col lg={8}>
+        <Col lg={6}>
           <Card className="h-100">
             <Card.Header className="bg-white">
               <h6 className="mb-0">Ventas por Mes</h6>
@@ -261,47 +287,77 @@ function Dashboard() {
             </Card.Body>
           </Card>
         </Col>
-        <Col lg={4}>
-          <Row className="g-4 h-100">
-            <Col xs={6} lg={12}>
-              <Card className="h-100">
-                <Card.Header className="bg-white py-2">
-                  <small className="fw-bold">Estado de Ventas</small>
-                </Card.Header>
-                <Card.Body className="d-flex align-items-center justify-content-center">
-                  <Doughnut 
-                    data={statusChartData} 
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: true,
-                      plugins: {
-                        legend: { position: 'bottom', labels: { boxWidth: 12 } },
+        <Col lg={6}>
+          <Card className="h-100">
+            <Card.Header className="bg-white">
+              <h6 className="mb-0">Abonos Cobrados por Mes</h6>
+            </Card.Header>
+            <Card.Body>
+              <Line 
+                data={abonosChartData} 
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: { display: false },
+                  },
+                  scales: {
+                    y: {
+                      beginAtZero: true,
+                      ticks: {
+                        callback: (value) => `$${Number(value).toLocaleString()}`,
                       },
-                    }}
-                  />
-                </Card.Body>
-              </Card>
-            </Col>
-            <Col xs={6} lg={12}>
-              <Card className="h-100">
-                <Card.Header className="bg-white py-2">
-                  <small className="fw-bold">Comisiones</small>
-                </Card.Header>
-                <Card.Body className="d-flex align-items-center justify-content-center">
-                  <Doughnut 
-                    data={commissionChartData} 
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: true,
-                      plugins: {
-                        legend: { position: 'bottom', labels: { boxWidth: 12 } },
-                      },
-                    }}
-                  />
-                </Card.Body>
-              </Card>
-            </Col>
-          </Row>
+                    },
+                  },
+                }}
+                height={250}
+              />
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
+
+      {/* Doughnuts Row */}
+      <Row className="g-4 mb-4">
+        <Col xs={6} lg={6}>
+          <Card className="h-100">
+            <Card.Header className="bg-white py-2">
+              <small className="fw-bold">Estado de Ventas</small>
+            </Card.Header>
+            <Card.Body className="d-flex align-items-center justify-content-center">
+              <Doughnut 
+                data={statusChartData} 
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: true,
+                  plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 12 } },
+                  },
+                }}
+                height={200}
+              />
+            </Card.Body>
+          </Card>
+        </Col>
+        <Col xs={6} lg={6}>
+          <Card className="h-100">
+            <Card.Header className="bg-white py-2">
+              <small className="fw-bold">Comisiones</small>
+            </Card.Header>
+            <Card.Body className="d-flex align-items-center justify-content-center">
+              <Doughnut 
+                data={commissionChartData} 
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: true,
+                  plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 12 } },
+                  },
+                }}
+                height={200}
+              />
+            </Card.Body>
+          </Card>
         </Col>
       </Row>
       
