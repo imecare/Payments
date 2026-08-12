@@ -16,6 +16,8 @@ const SellersPage = lazy(() => import('./pages/SellersPage'));
 const ClientsPage = lazy(() => import('./pages/ClientsPage'));
 const SalesPage = lazy(() => import('./pages/SalesPage'));
 const AbonosPage = lazy(() => import('./pages/AbonosPage'));
+const ExpensesPage = lazy(() => import('./pages/ExpensesPage'));
+const ReservationsPage = lazy(() => import('./pages/ReservationsPage'));
 const ConsultaPage = lazy(() => import('./pages/ConsultaPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const CommissionistDashboardPage = lazy(() => import('./pages/CommissionistDashboardPage'));
@@ -82,6 +84,22 @@ export default function App() {
                     element={
                       <RoleRoute allow={['super_admin']} fallbackTo="/forbidden">
                         <AbonosPage />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="/compras"
+                    element={
+                      <RoleRoute allow={['super_admin']} fallbackTo="/forbidden">
+                        <ExpensesPage />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="/apartados"
+                    element={
+                      <RoleRoute allow={['super_admin']} fallbackTo="/forbidden">
+                        <ReservationsPage />
                       </RoleRoute>
                     }
                   />

@@ -28,10 +28,14 @@ export const dashboardApi = {
    * is unavailable (e.g. during local dev without the full backend).
    */
   calculateStats: async (): Promise<DashboardStats> => {
-    const [sales, customers, sellers] = await Promise.all([
+    const [sales, customers, sellers, expenses] = await Promise.all([
       apiClient.get<Sale[]>('/payment/PaySales').then((r) => r.data),
       apiClient.get<Customer[]>('/payment/PayCustomers').then((r) => r.data),
       apiClient.get<Seller[]>('/payment/PaySellers').then((r) => r.data),
+      apiClient
+        .get<{ date: string; cost: number }[]>('/payment/PayExpenses')
+        .then((r) => r.data)
+        .catch(() => [] as { date: string; cost: number }[]),
     ]);
 
     const totalSales = sales.reduce((acc, s) => acc + s.totalAmount, 0);
@@ -62,6 +66,14 @@ export const dashboardApi = {
       .filter((s) => s.isPaid)
       .reduce((acc, s) => acc + (s.totalAmount - (s.costPrice ?? 0)), 0);
 
+    const now = new Date();
+    const monthlyExpenses = expenses
+      .filter((e) => {
+        const d = new Date(e.date);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      })
+      .reduce((acc, e) => acc + e.cost, 0);
+
     return {
       totalSales,
       totalCollected,
@@ -71,6 +83,7 @@ export const dashboardApi = {
       activeCustomers: customers.length,
       activeSellers: sellers.length,
       totalProfit,
+      monthlyExpenses,
     };
   },
 };

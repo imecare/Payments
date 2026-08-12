@@ -3,12 +3,13 @@ import { Container, Row, Col, Card, Table, Badge, Alert } from 'react-bootstrap'
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import { 
   FiDollarSign, FiUsers, FiTrendingUp, FiPercent, 
-  FiCheckCircle, FiClock, FiUserCheck 
+  FiCheckCircle, FiClock, FiUserCheck, FiShoppingBag, FiCreditCard
 } from 'react-icons/fi';
 import { useDashboardStats } from '../features/dashboard/hooks/useDashboard';
 import { useSales } from '../features/sales/hooks/useSales';
 import { useCustomers } from '../features/customers/hooks/useCustomers';
 import { useSellers } from '../features/sellers/hooks/useSellers';
+import { useExpenses } from '../features/expenses/hooks/useExpenses';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorAlert from '../components/ErrorAlert';
 import StatCard from '../components/StatCard';
@@ -39,18 +40,6 @@ ChartJS.register(
   Filler
 );
 
-// Module-level chart options — stable object references, no re-init on re-render
-const lineChartOptions = {
-  responsive: true,
-  plugins: { legend: { display: false } },
-  scales: { y: { beginAtZero: true } },
-};
-
-const doughnutOptions = {
-  responsive: true,
-  plugins: { legend: { position: 'bottom' as const } },
-};
-
 const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
 function Dashboard() {
@@ -58,6 +47,7 @@ function Dashboard() {
   const { data: sales = [], isLoading: salesLoading } = useSales();
   const { data: customers = [] } = useCustomers();
   const { data: sellers = [] } = useSellers();
+  const { data: expenses = [] } = useExpenses();
   
   const isLoading = statsLoading || salesLoading;
   
@@ -137,6 +127,70 @@ function Dashboard() {
       }],
     };
   }, [sales]);
+
+  // ── Compras / Gastos: helpers y datasets ──
+  const last6MonthsWindow = useMemo(() => {
+    const now = new Date();
+    return Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
+      return { year: d.getFullYear(), month: d.getMonth(), label: monthNames[d.getMonth()] };
+    });
+  }, []);
+
+  const monthlyExpensesTotal = useMemo(() => {
+    const now = new Date();
+    return expenses
+      .filter(e => {
+        const d = new Date(e.date);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      })
+      .reduce((sum, e) => sum + e.cost, 0);
+  }, [expenses]);
+
+  const expensesChartData = useMemo(() => ({
+    labels: last6MonthsWindow.map(m => m.label),
+    datasets: [{
+      label: 'Gastos',
+      data: last6MonthsWindow.map(({ year, month }) =>
+        expenses
+          .filter(e => {
+            const d = new Date(e.date);
+            return d.getFullYear() === year && d.getMonth() === month;
+          })
+          .reduce((sum, e) => sum + e.cost, 0)
+      ),
+      backgroundColor: 'rgba(220, 53, 69, 0.6)',
+      borderColor: 'rgb(220, 53, 69)',
+      borderWidth: 1,
+    }],
+  }), [expenses, last6MonthsWindow]);
+
+  // Proyección de mensualidades: cada compra a meses aporta cost/months
+  // en cada mes de su calendario (desde la fecha de compra por N meses).
+  const installmentsChartData = useMemo(() => ({
+    labels: last6MonthsWindow.map(m => m.label),
+    datasets: [{
+      label: 'Pagado a meses',
+      data: last6MonthsWindow.map(({ year, month }) =>
+        expenses
+          .filter(e => e.paymentType === 'Installments' && e.months && e.months > 0)
+          .reduce((sum, e) => {
+            const start = new Date(e.date);
+            const monthsCount = e.months as number;
+            const windowIndex = (year - start.getFullYear()) * 12 + (month - start.getMonth());
+            if (windowIndex >= 0 && windowIndex < monthsCount) {
+              const monthly = e.monthlyAmount ?? e.cost / monthsCount;
+              return sum + monthly;
+            }
+            return sum;
+          }, 0)
+      ),
+      borderColor: 'rgb(13, 202, 240)',
+      backgroundColor: 'rgba(13, 202, 240, 0.2)',
+      fill: true,
+      tension: 0.4,
+    }],
+  }), [expenses, last6MonthsWindow]);
 
   const statusChartData = useMemo(() => ({
     labels: ['Liquidadas', 'Pendientes'],
@@ -255,6 +309,15 @@ function Dashboard() {
             variant="info"
           />
         </Col>
+        <Col sm={6} lg={3}>
+          <StatCard
+            title="Gastos del Mes"
+            value={`$${(stats?.monthlyExpenses ?? monthlyExpensesTotal).toLocaleString()}`}
+            subtitle="Compras y gastos"
+            icon={<FiShoppingBag />}
+            variant="danger"
+          />
+        </Col>
       </Row>
       
       {/* Charts Row */}
@@ -295,6 +358,72 @@ function Dashboard() {
             <Card.Body>
               <Line 
                 data={abonosChartData} 
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: { display: false },
+                  },
+                  scales: {
+                    y: {
+                      beginAtZero: true,
+                      ticks: {
+                        callback: (value) => `$${Number(value).toLocaleString()}`,
+                      },
+                    },
+                  },
+                }}
+                height={250}
+              />
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
+
+      {/* Compras / Gastos Charts Row */}
+      <Row className="g-4 mb-4">
+        <Col lg={6}>
+          <Card className="h-100">
+            <Card.Header className="bg-white">
+              <h6 className="mb-0">
+                <FiShoppingBag className="me-2" />
+                Compras / Gastos por Mes
+              </h6>
+            </Card.Header>
+            <Card.Body>
+              <Bar
+                data={expensesChartData}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: { display: false },
+                  },
+                  scales: {
+                    y: {
+                      beginAtZero: true,
+                      ticks: {
+                        callback: (value) => `$${Number(value).toLocaleString()}`,
+                      },
+                    },
+                  },
+                }}
+                height={250}
+              />
+            </Card.Body>
+          </Card>
+        </Col>
+        <Col lg={6}>
+          <Card className="h-100">
+            <Card.Header className="bg-white">
+              <h6 className="mb-0">
+                <FiCreditCard className="me-2" />
+                Pagado a Meses (proyección)
+              </h6>
+            </Card.Header>
+            <Card.Body>
+              <Line
+                data={installmentsChartData}
                 options={{
                   responsive: true,
                   maintainAspectRatio: false,
