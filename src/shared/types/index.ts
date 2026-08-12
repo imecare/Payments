@@ -107,6 +107,57 @@ export interface CreateSaleDTO {
 }
 
 // ============================================
+// EXPENSES  (Compras / Gastos)
+// ============================================
+export type ExpensePaymentType = "Cash" | "Installments";
+
+export interface Expense {
+  id: number;
+  date: string;
+  description: string;
+  cost: number;
+  paymentType: ExpensePaymentType;
+  /** Número de meses cuando es a meses; null/undefined si es de contado. */
+  months?: number | null;
+  /** Mensualidad proyectada (cost / months); null/undefined si es de contado. */
+  monthlyAmount?: number | null;
+}
+
+export interface CreateExpenseDTO {
+  date: string;
+  description: string;
+  cost: number;
+  paymentType: ExpensePaymentType;
+  months?: number | null;
+}
+
+// ============================================
+// RESERVATIONS  (Apartados)
+// ============================================
+export interface Reservation {
+  id: number;
+  date: string;
+  customerId: number;
+  customerName?: string;
+  sellerId?: number | null;
+  sellerName?: string | null;
+  productDescription: string;
+  totalAmount: number;
+  costPrice: number;
+  commissionAmount: number;
+}
+
+export interface CreateReservationDTO {
+  customerId: number;
+  sellerId?: number;
+  totalAmount: number;
+  costPrice: number;
+  commissionAmount: number;
+  productDescription: string;
+  date: string;
+}
+
+// ============================================
 // DASHBOARD
 // ============================================
 export interface DashboardStats {
@@ -119,6 +170,8 @@ export interface DashboardStats {
   activeSellers: number;
   /** Server-computed: sum of (totalAmount - costPrice) for paid sales */
   totalProfit?: number;
+  /** Server-computed: total de gastos/compras del mes actual */
+  monthlyExpenses?: number;
 }
 
 export interface CommissionistStats {

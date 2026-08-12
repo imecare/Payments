@@ -5,7 +5,7 @@ import { useCompanyContext } from '../features/company/hooks/useCompanyContext';
 import { Container, Nav, Button, Badge } from 'react-bootstrap';
 import { 
   FiHome, FiShoppingCart, FiDollarSign, FiUsers, 
-  FiUserCheck, FiSettings, FiLogOut, FiMenu, FiX, FiCreditCard
+  FiUserCheck, FiSettings, FiLogOut, FiMenu, FiX, FiCreditCard, FiShoppingBag, FiBookmark
 } from 'react-icons/fi';
 import JumperLogo from '../components/JumperLogo';
 
@@ -64,7 +64,9 @@ export default function SidebarLayout() {
       ? [{ to: '/mi-cartera', icon: <FiHome size={18} />, label: 'Mi Cartera' }]
       : []),
     ...(isSuperAdmin ? [{ to: '/sales', icon: <FiShoppingCart size={18} />, label: 'Ventas' }] : []),
+    ...(isSuperAdmin ? [{ to: '/apartados', icon: <FiBookmark size={18} />, label: 'Apartados' }] : []),
     ...(isSuperAdmin ? [{ to: '/abonos', icon: <FiCreditCard size={18} />, label: 'Abonos' }] : []),
+    ...(isSuperAdmin ? [{ to: '/compras', icon: <FiShoppingBag size={18} />, label: 'Compras' }] : []),
     ...(isSuperAdmin
       ? [{ to: '/payments', icon: <FiDollarSign size={18} />, label: 'Registrar Abono' }]
       : []),
