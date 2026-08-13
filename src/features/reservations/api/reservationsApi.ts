@@ -13,9 +13,18 @@ export const reservationsApi = {
     return data;
   },
 
+  getMine: async (): Promise<Reservation[]> => {
+    const { data } = await apiClient.get<Reservation[]>('/payment/PayReservations/mine');
+    return data;
+  },
+
   create: async (reservation: CreateReservationDTO): Promise<number> => {
     const { data } = await apiClient.post<number>('/payment/PayReservations', reservation);
     return data;
+  },
+
+  update: async (id: number, reservation: CreateReservationDTO): Promise<void> => {
+    await apiClient.put(`/payment/PayReservations/${id}`, { ...reservation, id });
   },
 
   /** Concreta el apartado -> lo convierte en venta. Devuelve el saleId. */

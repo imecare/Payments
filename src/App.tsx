@@ -98,7 +98,7 @@ export default function App() {
                   <Route
                     path="/apartados"
                     element={
-                      <RoleRoute allow={['super_admin']} fallbackTo="/forbidden">
+                      <RoleRoute allow={['super_admin', 'commissionist']} fallbackTo="/forbidden">
                         <ReservationsPage />
                       </RoleRoute>
                     }

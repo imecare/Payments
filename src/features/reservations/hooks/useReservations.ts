@@ -9,16 +9,16 @@ import { reservationsApi, type CreateReservationDTO } from '../api/reservationsA
 // ============================================
 export const reservationKeys = {
   all: ['reservations'] as const,
-  lists: () => [...reservationKeys.all, 'list'] as const,
+  lists: (scope: 'all' | 'mine' = 'all') => [...reservationKeys.all, 'list', scope] as const,
 };
 
 // ============================================
 // QUERIES
 // ============================================
-export function useReservations() {
+export function useReservations(scope: 'all' | 'mine' = 'all') {
   return useQuery({
-    queryKey: reservationKeys.lists(),
-    queryFn: reservationsApi.getAll,
+    queryKey: reservationKeys.lists(scope),
+    queryFn: scope === 'mine' ? reservationsApi.getMine : reservationsApi.getAll,
     staleTime: 2 * 60 * 1000,
   });
 }
@@ -30,6 +30,17 @@ export function useCreateReservation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: CreateReservationDTO) => reservationsApi.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: reservationKeys.all });
+    },
+  });
+}
+
+export function useUpdateReservation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: CreateReservationDTO }) =>
+      reservationsApi.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: reservationKeys.all });
     },

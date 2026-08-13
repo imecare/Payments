@@ -31,7 +31,9 @@ export default function PaymentHistory({ saleId }: PaymentHistoryProps) {
   const [deletingPayment, setDeletingPayment] = useState<Payment | null>(null);
   const [deleteReason, setDeleteReason] = useState('');
 
-  const abonos = payments.filter(p => p.paymentTypeId === PAYMENT_TYPE_ABONO);
+  const abonos = payments
+    .filter(p => p.paymentTypeId === PAYMENT_TYPE_ABONO)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const openEdit = (p: Payment) => {
     setEditingPayment(p);

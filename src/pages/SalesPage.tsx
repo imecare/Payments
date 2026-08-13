@@ -5,7 +5,7 @@ import {
 } from 'react-bootstrap';
 import { 
   FiSearch, FiPlus, FiDollarSign, FiCheckCircle, FiClock, 
-  FiTrendingUp, FiPercent, FiEye, FiEdit2, FiTrash2
+  FiTrendingUp, FiPercent, FiEye, FiEdit2, FiTrash2, FiAlertTriangle
 } from 'react-icons/fi';
 import ResponsiveTable, { type Column } from '../components/ResponsiveTable';
 import SearchableSelect, { type SelectOption } from '../components/SearchableSelect';
@@ -876,6 +876,12 @@ export default function SalesPage() {
                       </option>
                     ))}
                   </Form.Select>
+                  {!formData.sellerId && (
+                    <Alert variant="warning" className="mt-2 mb-0 py-2 d-flex align-items-center">
+                      <FiAlertTriangle className="me-2 flex-shrink-0" />
+                      <small>No has seleccionado un vendedor. La venta quedará sin vendedor asignado.</small>
+                    </Alert>
+                  )}
                 </Form.Group>
               </Col>
             </Row>

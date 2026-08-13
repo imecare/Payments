@@ -1,8 +1,8 @@
 ﻿import { useState, useMemo, useCallback } from 'react';
-import { Button, Modal, Form, Row, Col, Badge, InputGroup, Card } from 'react-bootstrap';
+import { Button, Modal, Form, Row, Col, Badge, InputGroup, Card, Alert } from 'react-bootstrap';
 import {
   FiPlus, FiSearch, FiTrash2, FiCheckCircle, FiShoppingCart,
-  FiDollarSign, FiBookmark, FiCalendar,
+  FiDollarSign, FiBookmark, FiCalendar, FiEdit2, FiAlertTriangle,
 } from 'react-icons/fi';
 import ResponsiveTable, { type Column } from '../components/ResponsiveTable';
 import SearchableSelect, { type SelectOption } from '../components/SearchableSelect';
@@ -13,11 +13,13 @@ import ErrorAlert from '../components/ErrorAlert';
 import {
   useReservations,
   useCreateReservation,
+  useUpdateReservation,
   useConcretizeReservation,
   useDeleteReservation,
 } from '../features/reservations/hooks/useReservations';
 import { useCustomers } from '../features/customers/hooks/useCustomers';
 import { useSellers } from '../features/sellers/hooks/useSellers';
+import { useAuth } from '../auth/AuthContext';
 import type { Reservation, CreateReservationDTO } from '../shared/types';
 
 const todayISO = (): string => new Date().toISOString().split('T')[0];
@@ -33,15 +35,19 @@ const emptyReservation = (): CreateReservationDTO => ({
 });
 
 export default function ReservationsPage() {
-  const { data: reservations = [], isLoading, error, refetch } = useReservations();
+  const { isCommissionist } = useAuth();
+  const scope = isCommissionist ? 'mine' : 'all';
+  const { data: reservations = [], isLoading, error, refetch } = useReservations(scope);
   const { data: customers = [], isLoading: customersLoading } = useCustomers();
   const { data: sellers = [], isLoading: sellersLoading } = useSellers();
 
   const createMutation = useCreateReservation();
+  const updateMutation = useUpdateReservation();
   const concretizeMutation = useConcretizeReservation();
   const deleteMutation = useDeleteReservation();
 
   const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState<CreateReservationDTO>(() => emptyReservation());
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [searchTerm, setSearchTerm] = useState('');
@@ -65,13 +71,30 @@ export default function ReservationsPage() {
   }, [reservations]);
 
   const handleOpenModal = useCallback(() => {
+    setEditingId(null);
     setFormData(emptyReservation());
+    setFormErrors({});
+    setShowModal(true);
+  }, []);
+
+  const handleOpenEdit = useCallback((r: Reservation) => {
+    setEditingId(r.id);
+    setFormData({
+      customerId: r.customerId,
+      sellerId: r.sellerId ?? undefined,
+      totalAmount: r.totalAmount,
+      costPrice: r.costPrice,
+      commissionAmount: r.commissionAmount,
+      productDescription: r.productDescription,
+      date: r.date ? r.date.split('T')[0] : todayISO(),
+    });
     setFormErrors({});
     setShowModal(true);
   }, []);
 
   const handleCloseModal = useCallback(() => {
     setShowModal(false);
+    setEditingId(null);
     setFormData(emptyReservation());
     setFormErrors({});
   }, []);
@@ -92,16 +115,21 @@ export default function ReservationsPage() {
     (e: React.FormEvent) => {
       e.preventDefault();
       if (!validate()) return;
-      createMutation.mutate(
-        {
-          ...formData,
-          sellerId: formData.sellerId || undefined,
-          productDescription: formData.productDescription.trim(),
-        },
-        { onSuccess: () => handleCloseModal() }
-      );
+      const payload: CreateReservationDTO = {
+        ...formData,
+        sellerId: formData.sellerId || undefined,
+        productDescription: formData.productDescription.trim(),
+      };
+      if (editingId !== null) {
+        updateMutation.mutate(
+          { id: editingId, data: payload },
+          { onSuccess: () => handleCloseModal() }
+        );
+      } else {
+        createMutation.mutate(payload, { onSuccess: () => handleCloseModal() });
+      }
     },
-    [validate, formData, createMutation, handleCloseModal]
+    [validate, formData, editingId, updateMutation, createMutation, handleCloseModal]
   );
 
   const handleConfirmConcretize = useCallback(() => {
@@ -164,7 +192,10 @@ export default function ReservationsPage() {
         </Badge>
       ),
     },
-    {
+  ];
+
+  if (!isCommissionist) {
+    columns.push({
       key: 'actions',
       header: 'Acciones',
       isActions: true,
@@ -180,6 +211,14 @@ export default function ReservationsPage() {
             Concretar
           </Button>
           <Button
+            variant="outline-primary"
+            size="sm"
+            title="Editar apartado"
+            onClick={() => handleOpenEdit(r)}
+          >
+            <FiEdit2 />
+          </Button>
+          <Button
             variant="outline-danger"
             size="sm"
             title="Eliminar apartado"
@@ -189,8 +228,8 @@ export default function ReservationsPage() {
           </Button>
         </div>
       ),
-    },
-  ];
+    });
+  }
 
   return (
     <div>
@@ -203,7 +242,7 @@ export default function ReservationsPage() {
           </h2>
           <p className="text-muted mb-0">Reservas de venta pendientes de concretar</p>
         </div>
-        <Button variant="primary" onClick={handleOpenModal}>
+        <Button variant="primary" onClick={handleOpenModal} hidden={isCommissionist}>
           <FiPlus className="me-2" />
           Nuevo apartado
         </Button>
@@ -257,15 +296,18 @@ export default function ReservationsPage() {
         </Card.Body>
       </Card>
 
-      {/* Create Modal */}
+      {/* Create / Edit Modal */}
       <Modal show={showModal} onHide={handleCloseModal} centered size="lg">
         <Modal.Header closeButton>
-          <Modal.Title>Nuevo apartado</Modal.Title>
+          <Modal.Title>{editingId !== null ? `Editar apartado #${editingId}` : 'Nuevo apartado'}</Modal.Title>
         </Modal.Header>
         <Form onSubmit={handleSave} noValidate>
           <Modal.Body>
-            {createMutation.isError && (
-              <ErrorAlert error={createMutation.error} title="Error al crear apartado" />
+            {(createMutation.isError || updateMutation.isError) && (
+              <ErrorAlert
+                error={createMutation.error ?? updateMutation.error}
+                title={editingId !== null ? 'Error al actualizar apartado' : 'Error al crear apartado'}
+              />
             )}
 
             <Row>
@@ -305,6 +347,12 @@ export default function ReservationsPage() {
                       </option>
                     ))}
                   </Form.Select>
+                  {!formData.sellerId && (
+                    <Alert variant="warning" className="mt-2 mb-0 py-2 d-flex align-items-center">
+                      <FiAlertTriangle className="me-2 flex-shrink-0" />
+                      <small>No has seleccionado un vendedor. El apartado quedará sin vendedor asignado.</small>
+                    </Alert>
+                  )}
                 </Form.Group>
               </Col>
             </Row>
@@ -398,8 +446,10 @@ export default function ReservationsPage() {
             <Button variant="secondary" onClick={handleCloseModal}>
               Cancelar
             </Button>
-            <Button variant="primary" type="submit" disabled={createMutation.isPending}>
-              {createMutation.isPending ? 'Guardando...' : 'Guardar apartado'}
+            <Button variant="primary" type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
+              {createMutation.isPending || updateMutation.isPending
+                ? 'Guardando...'
+                : editingId !== null ? 'Guardar cambios' : 'Guardar apartado'}
             </Button>
           </Modal.Footer>
         </Form>

@@ -64,14 +64,14 @@ export default function SidebarLayout() {
       ? [{ to: '/mi-cartera', icon: <FiHome size={18} />, label: 'Mi Cartera' }]
       : []),
     ...(isSuperAdmin ? [{ to: '/sales', icon: <FiShoppingCart size={18} />, label: 'Ventas' }] : []),
-    ...(isSuperAdmin ? [{ to: '/apartados', icon: <FiBookmark size={18} />, label: 'Apartados' }] : []),
     ...(isSuperAdmin ? [{ to: '/abonos', icon: <FiCreditCard size={18} />, label: 'Abonos' }] : []),
-    ...(isSuperAdmin ? [{ to: '/compras', icon: <FiShoppingBag size={18} />, label: 'Compras' }] : []),
     ...(isSuperAdmin
       ? [{ to: '/payments', icon: <FiDollarSign size={18} />, label: 'Registrar Abono' }]
       : []),
     ...(isSuperAdmin || isCommissionist ? [{ to: '/clients', icon: <FiUsers size={18} />, label: 'Clientes' }] : []),
     ...(isSuperAdmin ? [{ to: '/sellers', icon: <FiUserCheck size={18} />, label: 'Vendedores' }] : []),
+    ...(isSuperAdmin || isCommissionist ? [{ to: '/apartados', icon: <FiBookmark size={18} />, label: 'Apartados' }] : []),
+    ...(isSuperAdmin ? [{ to: '/compras', icon: <FiShoppingBag size={18} />, label: 'Compras' }] : []),
   ];
 
   return (
