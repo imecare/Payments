@@ -121,6 +121,10 @@ export interface Expense {
   months?: number | null;
   /** Mensualidad proyectada (cost / months); null/undefined si es de contado. */
   monthlyAmount?: number | null;
+  /** Indica si la compra ya fue recibida. */
+  isReceived?: boolean;
+  /** Fecha en que se marcó como recibida; null si aún no. */
+  receivedAt?: string | null;
 }
 
 export interface CreateExpenseDTO {

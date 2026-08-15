@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Button, Modal, Form, Row, Col, Badge, InputGroup, Alert, Card } from 'react-bootstrap';
-import { FiSearch, FiPlus, FiEdit2, FiTrash2, FiShoppingCart, FiDollarSign, FiCalendar, FiCreditCard } from 'react-icons/fi';
+import { FiSearch, FiPlus, FiEdit2, FiTrash2, FiShoppingCart, FiDollarSign, FiCalendar, FiCreditCard, FiCheckCircle, FiPackage } from 'react-icons/fi';
 import ResponsiveTable, { type Column } from '../components/ResponsiveTable';
 import StatCard from '../components/StatCard';
 import ConfirmModal from '../components/ConfirmModal';
@@ -12,6 +12,7 @@ import {
   useCreateExpense,
   useUpdateExpense,
   useDeleteExpense,
+  useMarkExpenseReceived,
 } from '../features/expenses/hooks/useExpenses';
 import type { Expense, CreateExpenseDTO } from '../shared/types';
 
@@ -38,6 +39,7 @@ export default function ExpensesPage() {
   const createMutation = useCreateExpense();
   const updateMutation = useUpdateExpense();
   const deleteMutation = useDeleteExpense();
+  const markReceivedMutation = useMarkExpenseReceived();
 
   const {
     showModal, isEditing, editingId, formData, setFormData,
@@ -171,11 +173,36 @@ export default function ExpensesPage() {
           : <span className="text-muted">—</span>,
     },
     {
+      key: 'received',
+      header: 'Estado',
+      render: (e) =>
+        e.isReceived ? (
+          <Badge bg="success">
+            <FiCheckCircle className="me-1" />
+            Recibido
+          </Badge>
+        ) : (
+          <Badge bg="secondary">
+            <FiPackage className="me-1" />
+            Pendiente
+          </Badge>
+        ),
+    },
+    {
       key: 'actions',
       header: 'Acciones',
       isActions: true,
       render: (e) => (
         <div className="d-flex gap-2 justify-content-center">
+          <Button
+            variant={e.isReceived ? 'outline-secondary' : 'outline-success'}
+            size="sm"
+            title={e.isReceived ? 'Marcar como pendiente' : 'Marcar como recibido'}
+            disabled={markReceivedMutation.isPending}
+            onClick={() => markReceivedMutation.mutate({ id: e.id, received: !e.isReceived })}
+          >
+            <FiCheckCircle />
+          </Button>
           <Button variant="outline-primary" size="sm" title="Editar" onClick={() => handleOpenModal(e)}>
             <FiEdit2 />
           </Button>

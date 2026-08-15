@@ -22,6 +22,11 @@ export const expensesApi = {
     await apiClient.put(`/payment/PayExpenses/${id}`, { ...expense, id });
   },
 
+  /** Marca (o desmarca) la compra como recibida. */
+  markReceived: async (id: number, received: boolean): Promise<void> => {
+    await apiClient.patch(`/payment/PayExpenses/${id}/received`, { received });
+  },
+
   delete: async (id: number): Promise<void> => {
     await apiClient.delete(`/payment/PayExpenses/${id}`);
   },

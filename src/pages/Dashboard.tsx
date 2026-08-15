@@ -41,6 +41,11 @@ ChartJS.register(
 );
 
 const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+const monthNamesFull = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+/** Formatea un monto como moneda con hasta 2 decimales. */
+const formatMoney = (value: number) =>
+  `$${value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 
 function Dashboard() {
   const { data: stats, isLoading: statsLoading, error: statsError } = useDashboardStats();
@@ -192,6 +197,41 @@ function Dashboard() {
     }],
   }), [expenses, last6MonthsWindow]);
 
+  // Proyección de deuda a meses: qué resta por pagar del mes actual en adelante.
+  // Cada compra a meses aporta (cost/months) en cada mes de su calendario, empezando
+  // en el mes de compra por N meses. Solo contamos las mensualidades no vencidas
+  // (mes actual o futuras) y las agrupamos por mes para el desglose y el total.
+  const pendingInstallments = useMemo(() => {
+    const now = new Date();
+    const currentKey = now.getFullYear() * 12 + now.getMonth();
+    const buckets = new Map<number, number>();
+
+    for (const e of expenses) {
+      if (e.paymentType !== 'Installments' || !e.months || e.months <= 0) continue;
+      const start = new Date(e.date);
+      const monthsCount = e.months;
+      const monthly = e.monthlyAmount ?? e.cost / monthsCount;
+      for (let k = 0; k < monthsCount; k++) {
+        const d = new Date(start.getFullYear(), start.getMonth() + k, 1);
+        const key = d.getFullYear() * 12 + d.getMonth();
+        if (key >= currentKey) {
+          buckets.set(key, (buckets.get(key) ?? 0) + monthly);
+        }
+      }
+    }
+
+    const months = [...buckets.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([key, amount]) => ({
+        year: Math.floor(key / 12),
+        month: key % 12,
+        label: `${monthNamesFull[key % 12]} ${Math.floor(key / 12)}`,
+        amount,
+      }));
+    const total = months.reduce((sum, m) => sum + m.amount, 0);
+    return { months, total };
+  }, [expenses]);
+
   const statusChartData = useMemo(() => ({
     labels: ['Liquidadas', 'Pendientes'],
     datasets: [{
@@ -318,6 +358,15 @@ function Dashboard() {
             variant="danger"
           />
         </Col>
+        <Col sm={6} lg={3}>
+          <StatCard
+            title="Pendiente a Meses"
+            value={formatMoney(pendingInstallments.total)}
+            subtitle={`${pendingInstallments.months.length} meses pendientes`}
+            icon={<FiCreditCard />}
+            variant="warning"
+          />
+        </Col>
       </Row>
       
       {/* Charts Row */}
@@ -441,6 +490,51 @@ function Dashboard() {
                 }}
                 height={250}
               />
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
+
+      {/* Pendientes de pago a meses (proyección) */}
+      <Row className="g-4 mb-4">
+        <Col lg={6}>
+          <Card className="h-100">
+            <Card.Header className="bg-white d-flex justify-content-between align-items-center">
+              <h6 className="mb-0">
+                <FiCreditCard className="me-2" />
+                Pendientes de Pago a Meses
+              </h6>
+              <Badge bg="warning" text="dark">
+                Total: {formatMoney(pendingInstallments.total)}
+              </Badge>
+            </Card.Header>
+            <Card.Body>
+              {pendingInstallments.months.length === 0 ? (
+                <p className="text-muted mb-0">No hay pagos a meses pendientes.</p>
+              ) : (
+                <Table hover responsive size="sm" className="mb-0">
+                  <thead>
+                    <tr>
+                      <th>Mes</th>
+                      <th className="text-end">Monto</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pendingInstallments.months.map(m => (
+                      <tr key={`${m.year}-${m.month}`}>
+                        <td>{m.label}</td>
+                        <td className="text-end">{formatMoney(m.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="fw-bold border-top">
+                      <td>Total</td>
+                      <td className="text-end">{formatMoney(pendingInstallments.total)}</td>
+                    </tr>
+                  </tfoot>
+                </Table>
+              )}
             </Card.Body>
           </Card>
         </Col>

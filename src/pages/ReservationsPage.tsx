@@ -51,19 +51,42 @@ export default function ReservationsPage() {
   const [formData, setFormData] = useState<CreateReservationDTO>(() => emptyReservation());
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterSellerId, setFilterSellerId] = useState<number>(0);
   const [toConcretize, setToConcretize] = useState<Reservation | null>(null);
   const [toDelete, setToDelete] = useState<Reservation | null>(null);
 
   const filtered = useMemo(() => {
-    if (!searchTerm.trim()) return reservations;
-    const term = searchTerm.toLowerCase();
-    return reservations.filter(
-      (r) =>
-        (r.customerName ?? '').toLowerCase().includes(term) ||
-        r.productDescription.toLowerCase().includes(term) ||
-        String(r.id).includes(term)
-    );
-  }, [reservations, searchTerm]);
+    let result = reservations;
+
+    if (filterSellerId === -1) {
+      result = result.filter((r) => !r.sellerId);
+    } else if (filterSellerId > 0) {
+      result = result.filter((r) => r.sellerId === filterSellerId);
+    }
+
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      result = result.filter(
+        (r) =>
+          (r.customerName ?? '').toLowerCase().includes(term) ||
+          r.productDescription.toLowerCase().includes(term) ||
+          String(r.id).includes(term)
+      );
+    }
+
+    return result;
+  }, [reservations, searchTerm, filterSellerId]);
+
+  // Vendedores presentes en los apartados (para el filtro)
+  const reservationSellers = useMemo(() => {
+    const ids = [...new Set(reservations.map((r) => r.sellerId).filter(Boolean))] as number[];
+    return sellers.filter((s) => ids.includes(s.id));
+  }, [reservations, sellers]);
+
+  const hasUnassigned = useMemo(
+    () => reservations.some((r) => !r.sellerId),
+    [reservations]
+  );
 
   const totals = useMemo(() => {
     const totalAmount = reservations.reduce((acc, r) => acc + r.totalAmount, 0);
@@ -271,14 +294,35 @@ export default function ReservationsPage() {
       {/* Search + Table */}
       <Card className="border-0 shadow-sm">
         <Card.Body>
-          <InputGroup className="mb-3">
-            <InputGroup.Text><FiSearch /></InputGroup.Text>
-            <Form.Control
-              placeholder="Buscar por cliente, producto o folio..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </InputGroup>
+          <Row className="g-2 mb-3">
+            <Col md={isCommissionist ? 12 : 7}>
+              <InputGroup>
+                <InputGroup.Text><FiSearch /></InputGroup.Text>
+                <Form.Control
+                  placeholder="Buscar por cliente, producto o folio..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </InputGroup>
+            </Col>
+            {!isCommissionist && (
+              <Col md={5}>
+                <Form.Select
+                  value={filterSellerId}
+                  onChange={(e) => setFilterSellerId(Number(e.target.value))}
+                  aria-label="Filtrar por vendedor"
+                >
+                  <option value={0}>Todos los vendedores</option>
+                  {hasUnassigned && <option value={-1}>Sin vendedor asignado</option>}
+                  {reservationSellers.map((seller) => (
+                    <option key={seller.id} value={seller.id}>
+                      {seller.name} {seller.lastName}
+                    </option>
+                  ))}
+                </Form.Select>
+              </Col>
+            )}
+          </Row>
 
           {concretizeMutation.isError && (
             <ErrorAlert error={concretizeMutation.error} title="Error al concretar apartado" />

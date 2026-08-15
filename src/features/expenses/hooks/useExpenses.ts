@@ -59,3 +59,14 @@ export function useDeleteExpense() {
     },
   });
 }
+
+export function useMarkExpenseReceived() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, received }: { id: number; received: boolean }) =>
+      expensesApi.markReceived(id, received),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: expenseKeys.all });
+    },
+  });
+}
