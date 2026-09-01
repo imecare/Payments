@@ -6,6 +6,7 @@ import { Form, Button, Container, Row, Col, Alert, Spinner } from 'react-bootstr
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import { FiRefreshCw } from 'react-icons/fi';
 import JumperLogo from '../components/JumperLogo';
+import MobileInstallPrompt from '../components/MobileInstallPrompt';
 
 
 export default function LoginPage() {
@@ -164,6 +165,7 @@ export default function LoginPage() {
                 </>
               ) : 'Entrar'}
             </Button>
+            <MobileInstallPrompt floating={false} />
           </Form>
           <div className="text-center mt-3">
             <small className="text-muted">¿Eres cliente?</small>{' '}

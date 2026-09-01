@@ -8,7 +8,6 @@ import LoginPage from './auth/LoginPage';
 import SidebarLayout from './layout/SidebarLayout';
 import ErrorBoundary from './components/ErrorBoundary';
 import LoadingSpinner from './components/LoadingSpinner';
-import MobileInstallPrompt from './components/MobileInstallPrompt';
 
 // Lazy load pages for code splitting
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -134,7 +133,6 @@ export default function App() {
                 {/* Cualquier otra ruta redirige al login */}
                 <Route path="*" element={<Navigate to="/login" replace />} />
               </Routes>
-              <MobileInstallPrompt />
             </Suspense>
           </AuthProvider>
         </BrowserRouter>

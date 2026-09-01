@@ -14,6 +14,10 @@ interface NavigatorWithStandalone extends Navigator {
   standalone?: boolean;
 }
 
+interface MobileInstallPromptProps {
+  floating?: boolean;
+}
+
 function isRunningStandalone() {
   return (
     window.matchMedia('(display-mode: standalone)').matches ||
@@ -29,11 +33,11 @@ function getMobilePlatform() {
   return { isIPhone, isAndroidPhone };
 }
 
-export default function MobileInstallPrompt() {
+export default function MobileInstallPrompt({ floating = true }: MobileInstallPromptProps) {
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showIosInstructions, setShowIosInstructions] = useState(false);
   const [isInstalled, setIsInstalled] = useState(() => isRunningStandalone());
-  const { isIPhone, isAndroidPhone } = getMobilePlatform();
+  const { isIPhone } = getMobilePlatform();
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (event: Event) => {
@@ -56,7 +60,7 @@ export default function MobileInstallPrompt() {
     };
   }, []);
 
-  if (isInstalled || (!isIPhone && (!isAndroidPhone || !installPrompt))) {
+  if (isInstalled || (!isIPhone && !installPrompt)) {
     return null;
   }
 
@@ -84,10 +88,12 @@ export default function MobileInstallPrompt() {
       <Button
         type="button"
         variant="primary"
-        className="position-fixed bottom-0 end-0 m-3 d-flex align-items-center gap-2 shadow"
-        style={{ zIndex: 1030 }}
+        className={floating
+          ? 'position-fixed bottom-0 end-0 m-3 d-flex align-items-center gap-2 shadow'
+          : 'w-100 d-flex justify-content-center align-items-center gap-2 mt-3'}
+        style={floating ? { zIndex: 1030 } : undefined}
         onClick={handleInstall}
-        aria-label="Instalar Business Cloud en este teléfono"
+        aria-label="Instalar Business Cloud como aplicación"
       >
         <FaDownload aria-hidden="true" />
         Instalar app
