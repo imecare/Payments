@@ -1,24 +1,20 @@
 import { useState, useMemo } from 'react';
 import {
-  Container, Row, Col, Card, Table, Modal, Badge,
+  Container, Row, Col, Card, Table,
   Button, InputGroup, Form, OverlayTrigger, Tooltip,
 } from 'react-bootstrap';
-import { FiSearch, FiDollarSign, FiCheckCircle, FiClock, FiPlus, FiFilter, FiCircle } from 'react-icons/fi';
-import { useSales } from '../features/sales/hooks/useSales';
-import { useCustomers } from '../features/customers/hooks/useCustomers';
-import { useSellers } from '../features/sellers/hooks/useSellers';
+import { FiSearch, FiDollarSign, FiCheckCircle, FiClock, FiCircle } from 'react-icons/fi';
+import { useCustomerDebts } from '../features/sales/hooks/useSales';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorAlert from '../components/ErrorAlert';
 import StatCard from '../components/StatCard';
-import PaymentForm from '../features/payments/components/PaymentForm';
-import PaymentTable from '../features/payments/components/PaymentTable';
-import type { Sale, Payment } from '../shared/types';
+import type { CustomerDebt } from '../shared/types';
 
 // ============================================
 // TYPES
 // ============================================
-type Filter = 'all' | 'pending' | 'paid';
-type SortBy = 'date-desc' | 'date-asc' | 'seller-asc' | 'seller-desc';
+type Filter = 'all' | 'red' | 'orange' | 'green';
+type SortBy = 'payment-asc' | 'payment-desc' | 'seller-asc' | 'seller-desc';
 type PaymentStatus = 'green' | 'orange' | 'red' | 'none';
 
 // ============================================
@@ -97,27 +93,19 @@ function getQuincenaRanges(today: Date): { current: QuincenaRange; previous: Qui
   return { current, previous };
 }
 
-function getPaymentStatusForSale(sale: Sale, today: Date): { status: PaymentStatus; tooltip: string } {
-  // Si la venta ya está liquidada, no necesita indicador
-  if (sale.isPaid) {
-    return { status: 'none', tooltip: 'Venta liquidada' };
-  }
-
-  const payments = (sale.payments ?? sale.payment ?? []).filter((p) => p.paymentTypeId === 2);
+function getPaymentStatusForDebt(
+  lastPaymentDate: string | null,
+  today: Date
+): { status: PaymentStatus; tooltip: string } {
   const { current, previous } = getQuincenaRanges(today);
   const day = today.getDate();
-
-  // Verificar si hay abono en la quincena actual
-  const hasPaymentInCurrent = payments.some((p) => {
-    const paymentDate = new Date(p.date);
-    return paymentDate >= current.start && paymentDate <= current.end;
-  });
-
-  // Verificar si hay abono en la quincena anterior
-  const hasPaymentInPrevious = payments.some((p) => {
-    const paymentDate = new Date(p.date);
-    return paymentDate >= previous.start && paymentDate <= previous.end;
-  });
+  const paymentDate = lastPaymentDate ? new Date(lastPaymentDate) : null;
+  const hasPaymentInCurrent = paymentDate !== null
+    && paymentDate >= current.start
+    && paymentDate <= current.end;
+  const hasPaymentInPrevious = paymentDate !== null
+    && paymentDate >= previous.start
+    && paymentDate <= previous.end;
 
   // VERDE: Abonó en la quincena actual
   if (hasPaymentInCurrent) {
@@ -147,127 +135,93 @@ function getPaymentStatusForSale(sale: Sale, today: Date): { status: PaymentStat
 // PAGE
 // ============================================
 export default function AbonosPage() {
-  const { data: sales = [], isLoading, error, refetch } = useSales();
-  const { data: customers = [] } = useCustomers();
-  const { data: sellers = [] } = useSellers();
-
-  // Modal state
-  const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
-  const [showModal, setShowModal] = useState(false);
+  const { data: debts = [], isLoading, error, refetch } = useCustomerDebts();
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
-  const [sortBy, setSortBy] = useState<SortBy>('date-desc');
+  const [sortBy, setSortBy] = useState<SortBy>('payment-asc');
   const [filterSellerId, setFilterSellerId] = useState<number | null>(null);
 
   // ----------------------------------------
   // Derived data
   // ----------------------------------------
-  const getCustomerName = (customerId: number) => {
-    const c = customers.find((x) => x.id === customerId);
-    return c ? `${c.name} ${c.lastName}` : `Cliente #${customerId}`;
-  };
+  const debtSellers = useMemo(() => {
+    const sellers = new Map<number, string>();
+    debts.forEach((debt) => sellers.set(debt.sellerId, debt.sellerName));
+    return [...sellers.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [debts]);
 
-  const getSellerName = (sellerId: number | null | undefined) => {
-    if (!sellerId) return 'Sin asignar';
-    const s = sellers.find((x) => x.id === sellerId);
-    return s ? `${s.name} ${s.lastName}` : `Vendedor #${sellerId}`;
-  };
+  const filteredDebts = useMemo(() => {
+    let result = [...debts];
 
-  // Get unique sellers from sales for dropdown
-  const salesSellers = useMemo(() => {
-    const sellerIds = [...new Set(sales.map(s => s.sellerId).filter(Boolean))] as number[];
-    return sellers.filter(s => sellerIds.includes(s.id));
-  }, [sales, sellers]);
-
-  const filteredSales = useMemo(() => {
-    let result = sales;
-
-    if (filter === 'pending') result = result.filter((s) => !s.isPaid);
-    if (filter === 'paid')    result = result.filter((s) => s.isPaid);
-
-    // Filter by seller
-    if (filterSellerId !== null) {
-      result = result.filter((s) => s.sellerId === filterSellerId);
-    }
-
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
+    if (filter !== 'all') {
       result = result.filter(
-        (s) =>
-          String(s.id).includes(term) ||
-          getCustomerName(s.customerId).toLowerCase().includes(term)
+        (debt) => getPaymentStatusForDebt(debt.lastPaymentDate, new Date()).status === filter
       );
     }
 
-    // Sorting
+    if (filterSellerId !== null) {
+      result = result.filter((debt) => debt.sellerId === filterSellerId);
+    }
+
+    if (searchTerm.trim()) {
+      const term = searchTerm.trim().toLocaleLowerCase('es-MX');
+      result = result.filter((debt) => debt.customerName.toLocaleLowerCase('es-MX').includes(term));
+    }
+
     return result.sort((a, b) => {
       switch (sortBy) {
-        case 'date-desc':
-          return new Date(b.date).getTime() - new Date(a.date).getTime();
-        case 'date-asc':
-          return new Date(a.date).getTime() - new Date(b.date).getTime();
-        case 'seller-asc': {
-          const sellerA = getSellerName(a.sellerId).toLowerCase();
-          const sellerB = getSellerName(b.sellerId).toLowerCase();
-          return sellerA.localeCompare(sellerB);
-        }
-        case 'seller-desc': {
-          const sellerA = getSellerName(a.sellerId).toLowerCase();
-          const sellerB = getSellerName(b.sellerId).toLowerCase();
-          return sellerB.localeCompare(sellerA);
-        }
+        case 'payment-asc':
+          if (!a.lastPaymentDate) return b.lastPaymentDate ? -1 : a.customerName.localeCompare(b.customerName);
+          if (!b.lastPaymentDate) return 1;
+          return new Date(a.lastPaymentDate).getTime() - new Date(b.lastPaymentDate).getTime();
+        case 'payment-desc':
+          if (!a.lastPaymentDate) return b.lastPaymentDate ? 1 : a.customerName.localeCompare(b.customerName);
+          if (!b.lastPaymentDate) return -1;
+          return new Date(b.lastPaymentDate).getTime() - new Date(a.lastPaymentDate).getTime();
+        case 'seller-asc':
+          return a.sellerName.localeCompare(b.sellerName);
+        case 'seller-desc':
+          return b.sellerName.localeCompare(a.sellerName);
         default:
           return 0;
       }
     });
-  }, [sales, filter, searchTerm, customers, sortBy, filterSellerId, sellers]);
+  }, [debts, filter, searchTerm, sortBy, filterSellerId]);
 
-  // Ventas filtradas por vendedor (para stats)
-  const salesBySellerFilter = useMemo(() => {
-    if (filterSellerId === null) return sales;
-    return sales.filter(s => s.sellerId === filterSellerId);
-  }, [sales, filterSellerId]);
+  const debtsBySellerFilter = useMemo(() => {
+    if (filterSellerId === null) return debts;
+    return debts.filter((debt) => debt.sellerId === filterSellerId);
+  }, [debts, filterSellerId]);
 
   const stats = useMemo(() => {
-    const total        = salesBySellerFilter.reduce((acc, s) => acc + s.totalAmount, 0);
-    const paid         = salesBySellerFilter.filter((s) => s.isPaid).length;
-    const pending      = salesBySellerFilter.filter((s) => !s.isPaid).length;
-    const collected    = salesBySellerFilter
-      .flatMap((s) => s.payments ?? s.payment ?? [])
-      .filter((p) => p.paymentTypeId === 2)
-      .reduce((acc, p) => acc + p.amount, 0);
-
-    return { total, paid, pending, collected };
-  }, [salesBySellerFilter]);
-
-  // ----------------------------------------
-  // Handlers
-  // ----------------------------------------
-  const openModal = (sale: Sale) => {
-    setSelectedSale(sale);
-    setShowModal(true);
-  };
-
-  const closeModal = () => {
-    setShowModal(false);
-    setSelectedSale(null);
-  };
+    return debtsBySellerFilter.reduce(
+      (summary, debt) => ({
+        total: summary.total + debt.totalAmount,
+        collected: summary.collected + debt.paidAmount,
+        debt: summary.debt + debt.debtAmount,
+        customers: summary.customers + 1,
+      }),
+      { total: 0, collected: 0, debt: 0, customers: 0 }
+    );
+  }, [debtsBySellerFilter]);
 
   // ----------------------------------------
   // Render
   // ----------------------------------------
-  if (isLoading) return <LoadingSpinner fullPage message="Cargando ventas..." />;
-  if (error)     return <ErrorAlert error={error} title="Error al cargar ventas" onRetry={refetch} />;
+  if (isLoading) return <LoadingSpinner fullPage message="Cargando deudas..." />;
+  if (error)     return <ErrorAlert error={error} title="Error al cargar deudas" onRetry={refetch} />;
 
   return (
     <Container fluid className="py-4">
       {/* Header */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
-          <h2 className="fw-bold mb-0">Abonos</h2>
-          <p className="text-muted mb-0">Gestiona los pagos y abonos por venta</p>
+          <h2 className="fw-bold mb-0">Deudas</h2>
+          <p className="text-muted mb-0">Consulta los clientes con saldo pendiente</p>
         </div>
       </div>
 
@@ -291,16 +245,16 @@ export default function AbonosPage() {
         </Col>
         <Col xs={12} sm={6} xl={3}>
           <StatCard
-            title="Ventas pagadas"
-            value={stats.paid}
-            icon={<FiCheckCircle size={20} />}
-            variant="success"
+            title="Deuda pendiente"
+            value={`$${stats.debt.toLocaleString()}`}
+            icon={<FiDollarSign size={20} />}
+            variant="danger"
           />
         </Col>
         <Col xs={12} sm={6} xl={3}>
           <StatCard
-            title="Ventas pendientes"
-            value={stats.pending}
+            title="Clientes con deuda"
+            value={stats.customers}
             icon={<FiClock size={20} />}
             variant="warning"
           />
@@ -315,21 +269,21 @@ export default function AbonosPage() {
               <InputGroup>
                 <InputGroup.Text><FiSearch /></InputGroup.Text>
                 <Form.Control
-                  placeholder="Buscar por cliente o # venta..."
+                  placeholder="Buscar por cliente..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </InputGroup>
             </Col>
             <Col md={6} className="d-flex gap-2 justify-content-md-end">
-              {(['all', 'pending', 'paid'] as Filter[]).map((f) => (
+              {(['all', 'red', 'orange', 'green'] as Filter[]).map((f) => (
                 <Button
                   key={f}
                   size="sm"
-                  variant={filter === f ? 'primary' : 'outline-secondary'}
+                  variant={filter === f ? ({ all: 'primary', red: 'danger', orange: 'warning', green: 'success' } as const)[f] : 'outline-secondary'}
                   onClick={() => setFilter(f)}
                 >
-                  {{ all: 'Todas', pending: 'Pendientes', paid: 'Liquidadas' }[f]}
+                  {{ all: 'Todos', red: 'Rojo', orange: 'Naranja', green: 'Verde' }[f]}
                 </Button>
               ))}
             </Col>
@@ -341,13 +295,13 @@ export default function AbonosPage() {
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as SortBy)}
               >
-                <option value="date-desc">Fecha (más reciente)</option>
-                <option value="date-asc">Fecha (más antigua)</option>
+                <option value="payment-asc">Último abono (más antiguo)</option>
+                <option value="payment-desc">Último abono (más reciente)</option>
                 <option value="seller-asc">Vendedor (A-Z)</option>
                 <option value="seller-desc">Vendedor (Z-A)</option>
               </Form.Select>
             </Col>
-            {salesSellers.length > 0 && (
+            {debtSellers.length > 0 && (
               <Col md={4}>
                 <Form.Select
                   size="sm"
@@ -355,9 +309,9 @@ export default function AbonosPage() {
                   onChange={(e) => setFilterSellerId(e.target.value ? Number(e.target.value) : null)}
                 >
                   <option value="">Todos los vendedores</option>
-                  {salesSellers.map((seller) => (
+                  {debtSellers.map((seller) => (
                     <option key={seller.id} value={seller.id}>
-                      {seller.name} {seller.lastName}
+                      {seller.name}
                     </option>
                   ))}
                 </Form.Select>
@@ -367,36 +321,32 @@ export default function AbonosPage() {
         </Card.Body>
       </Card>
 
-      {/* Sales table */}
+      {/* Debts table */}
       <Card className="border-0 shadow-sm">
         <Card.Body className="p-0">
           <Table hover responsive className="mb-0 table-responsive-cards">
             <thead className="table-light">
               <tr>
                 <th style={{ width: '40px' }}></th>
-                <th>#</th>
                 <th>Cliente</th>
                 <th>Vendedor</th>
+                <th>Ventas pendientes</th>
                 <th>Total</th>
                 <th>Abonado</th>
-                <th>Estado</th>
-                <th>Fecha</th>
-                <th></th>
+                <th>Deuda</th>
+                <th>Último abono</th>
               </tr>
             </thead>
             <tbody>
-              {filteredSales.length === 0 ? (
+              {filteredDebts.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="text-center py-4 text-muted">
-                    No se encontraron ventas.
+                  <td colSpan={8} className="text-center py-4 text-muted">
+                    No se encontraron clientes con deuda.
                   </td>
                 </tr>
               ) : (
-                filteredSales.map((sale) => {
-                  const totalAbonado = (sale.payments ?? sale.payment ?? [])
-                    .filter((p) => p.paymentTypeId === 2)
-                    .reduce((acc, p) => acc + p.amount, 0);
-                  const { status, tooltip } = getPaymentStatusForSale(sale, new Date());
+                filteredDebts.map((debt: CustomerDebt) => {
+                  const { status, tooltip } = getPaymentStatusForDebt(debt.lastPaymentDate, new Date());
                   
                   const statusColors: Record<PaymentStatus, string> = {
                     green: '#28a745',
@@ -406,7 +356,7 @@ export default function AbonosPage() {
                   };
 
                   return (
-                    <tr key={sale.id}>
+                    <tr key={debt.customerId}>
                       <td data-label="Estado Pago" className="text-center align-middle">
                         {status !== 'none' && (
                           <OverlayTrigger
@@ -423,28 +373,16 @@ export default function AbonosPage() {
                           </OverlayTrigger>
                         )}
                       </td>
-                      <td data-label="Venta #" className="text-muted">{sale.id}</td>
-                      <td data-label="Cliente">{getCustomerName(sale.customerId)}</td>
-                      <td data-label="Vendedor" className="text-muted">{getSellerName(sale.sellerId)}</td>
-                      <td data-label="Total" className="fw-semibold">${sale.totalAmount.toLocaleString()}</td>
-                      <td data-label="Abonado" className="text-success fw-semibold">${totalAbonado.toLocaleString()}</td>
-                      <td data-label="Estado">
-                        <Badge bg={sale.isPaid ? 'success' : 'warning'}>
-                          {sale.isPaid ? 'Liquidada' : 'Pendiente'}
-                        </Badge>
-                      </td>
-                      <td data-label="Fecha" className="text-muted">
-                        {new Date(sale.date).toLocaleDateString('es-MX')}
-                      </td>
-                      <td data-label="Acciones">
-                        <Button
-                          size="sm"
-                          variant="outline-primary"
-                          onClick={() => openModal(sale)}
-                        >
-                          <FiPlus className="me-1" />
-                          Abonos
-                        </Button>
+                      <td data-label="Cliente">{debt.customerName}</td>
+                      <td data-label="Vendedor" className="text-muted">{debt.sellerName}</td>
+                      <td data-label="Ventas pendientes">{debt.pendingSalesCount}</td>
+                      <td data-label="Total" className="fw-semibold">${debt.totalAmount.toLocaleString()}</td>
+                      <td data-label="Abonado" className="text-success fw-semibold">${debt.paidAmount.toLocaleString()}</td>
+                      <td data-label="Deuda" className="text-danger fw-semibold">${debt.debtAmount.toLocaleString()}</td>
+                      <td data-label="Último abono" className="text-muted">
+                        {debt.lastPaymentDate
+                          ? new Date(debt.lastPaymentDate).toLocaleDateString('es-MX')
+                          : 'Sin abonos'}
                       </td>
                     </tr>
                   );
@@ -455,48 +393,6 @@ export default function AbonosPage() {
         </Card.Body>
       </Card>
 
-      {/* Abonos Modal */}
-      <Modal show={showModal} onHide={closeModal} centered size="lg">
-        <Modal.Header closeButton>
-          <Modal.Title>
-            Abonos — Venta #{selectedSale?.id}{' '}
-            <span className="text-muted fw-normal fs-6">
-              {selectedSale && getCustomerName(selectedSale.customerId)}
-            </span>
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          {selectedSale && (
-            <>
-              {/* History */}
-              <h6 className="mb-3">Historial de abonos</h6>
-              <PaymentTable
-                saleId={selectedSale.id}
-                totalAmount={selectedSale.totalAmount}
-              />
-
-              {/* New payment form */}
-              {!selectedSale.isPaid && (
-                <>
-                  <hr />
-                  <h6 className="mb-3">Registrar nuevo abono</h6>
-                  <PaymentForm
-                    saleId={selectedSale.id}
-                    onSuccess={closeModal}
-                  />
-                </>
-              )}
-
-              {selectedSale.isPaid && (
-                <div className="text-center text-success py-3">
-                  <FiCheckCircle size={24} className="mb-2" />
-                  <p className="mb-0">Esta venta ya está completamente liquidada.</p>
-                </div>
-              )}
-            </>
-          )}
-        </Modal.Body>
-      </Modal>
     </Container>
   );
 }

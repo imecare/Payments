@@ -64,7 +64,7 @@ export default function SidebarLayout() {
       ? [{ to: '/mi-cartera', icon: <FiHome size={18} />, label: 'Mi Cartera' }]
       : []),
     ...(isSuperAdmin ? [{ to: '/sales', icon: <FiShoppingCart size={18} />, label: 'Ventas' }] : []),
-    ...(isSuperAdmin ? [{ to: '/abonos', icon: <FiCreditCard size={18} />, label: 'Abonos' }] : []),
+    ...(isSuperAdmin ? [{ to: '/abonos', icon: <FiCreditCard size={18} />, label: 'Deudas' }] : []),
     ...(isSuperAdmin
       ? [{ to: '/payments', icon: <FiDollarSign size={18} />, label: 'Registrar Abono' }]
       : []),

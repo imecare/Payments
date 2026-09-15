@@ -3,7 +3,7 @@
  * Endpoints: /payment/PaySales  |  /payment/PayPublicSales
  */
 import apiClient from '@/shared/api/apiClient';
-import type { Sale, CreateSaleDTO } from '@/shared/types';
+import type { CustomerDebt, Sale, CreateSaleDTO } from '@/shared/types';
 
 export type { Sale, CreateSaleDTO };
 
@@ -21,6 +21,12 @@ export const salesApi = {
   getAll: async (): Promise<Sale[]> => {
     const { data } = await apiClient.get<Sale[]>('/payment/PaySales');
     return data.map(normalizeSale);
+  },
+
+  /** Customers with outstanding balances, grouped and ordered by oldest payment */
+  getDebts: async (): Promise<CustomerDebt[]> => {
+    const { data } = await apiClient.get<CustomerDebt[]>('/payment/PaySales/debts');
+    return data;
   },
 
   /** Customer history search by phone/rfc (at least one required) */

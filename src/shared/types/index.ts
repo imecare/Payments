@@ -106,6 +106,18 @@ export interface CreateSaleDTO {
   date?: string;
 }
 
+export interface CustomerDebt {
+  customerId: number;
+  customerName: string;
+  sellerId: number;
+  sellerName: string;
+  totalAmount: number;
+  paidAmount: number;
+  debtAmount: number;
+  pendingSalesCount: number;
+  lastPaymentDate: string | null;
+}
+
 // ============================================
 // EXPENSES  (Compras / Gastos)
 // ============================================

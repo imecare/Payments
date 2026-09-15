@@ -11,6 +11,7 @@ import type { Sale } from '../../../shared/types';
 export const saleKeys = {
   all: ['sales'] as const,
   lists: (scope: 'all' | 'mine' = 'all') => [...saleKeys.all, 'list', scope] as const,
+  debts: () => [...saleKeys.all, 'debts'] as const,
   pending: () => [...saleKeys.all, 'pending'] as const,
   pendingByCustomer: (customerId: number) => [...saleKeys.pending(), customerId] as const,
   details: () => [...saleKeys.all, 'detail'] as const,
@@ -26,6 +27,14 @@ export function useSales(scope: 'all' | 'mine' = 'all') {
   return useQuery({
     queryKey: saleKeys.lists(scope),
     queryFn: scope === 'mine' ? salesApi.getMine : salesApi.getAll,
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
+export function useCustomerDebts() {
+  return useQuery({
+    queryKey: saleKeys.debts(),
+    queryFn: salesApi.getDebts,
     staleTime: 2 * 60 * 1000,
   });
 }
