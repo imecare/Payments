@@ -1,20 +1,19 @@
 import { useState, useMemo, useCallback } from 'react';
-import { Button, Modal, Form, Row, Col, Badge, InputGroup, Alert, Card, OverlayTrigger, Tooltip } from 'react-bootstrap';
-import { FiSearch, FiPlus, FiEdit2, FiPhone, FiUsers, FiEye, FiLink, FiCheckCircle, FiCopy, FiDollarSign, FiShoppingCart, FiClock } from 'react-icons/fi';
+import { Button, Modal, Form, Row, Col, Badge, InputGroup, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { FiSearch, FiPlus, FiEdit2, FiPhone, FiUsers } from 'react-icons/fi';
 import ResponsiveTable, { type Column } from '../components/ResponsiveTable';
 import { 
   useCustomers, 
   useCreateCustomer, 
   useUpdateCustomer
 } from '../features/customers/hooks/useCustomers';
-import type { Customer, CreateCustomerDTO, Sale, Payment } from '../shared/types';
+import type { Customer, CreateCustomerDTO } from '../shared/types';
 import { useSellers } from '../features/sellers/hooks/useSellers';
 import { useCrudForm } from '../shared/hooks/useCrudForm';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorAlert from '../components/ErrorAlert';
-import { useCompanyContext } from '../features/company/hooks/useCompanyContext';
-import { usePublicHistoryLookup } from '../features/sales/hooks/usePublicHistory';
 import { useAuth } from '../auth/AuthContext';
+import CustomerHistoryActions from '../features/customers/components/CustomerHistoryActions';
 
 const emptyCustomer: CreateCustomerDTO = { name: '', lastName: '', rfc: '', phone: '', sellerId: 0 };
 const mapCustomerToForm = (c: Customer): CreateCustomerDTO => ({
@@ -32,10 +31,8 @@ export default function ClientsPage() {
   const customerScope = isCommissionist ? 'mine' : 'all';
   const { data: customers = [], isLoading, error, refetch } = useCustomers(customerScope);
   const { data: sellers = [], isLoading: sellersLoading } = useSellers();
-  const { data: companyData } = useCompanyContext();
   const createMutation = useCreateCustomer();
   const updateMutation = useUpdateCustomer();
-  const historyLookup = usePublicHistoryLookup();
 
   const {
     showModal, editingId, isEditing, formData, setFormData,
@@ -43,13 +40,7 @@ export default function ClientsPage() {
   } = useCrudForm<CreateCustomerDTO, Customer>({ emptyForm: emptyCustomer, mapEntityToForm: mapCustomerToForm });
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [showHistoryModal, setShowHistoryModal] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [copiedLink, setCopiedLink] = useState(false);
   const [filterSellerId, setFilterSellerId] = useState<number | null>(commissionistSellerId);
-
-  const companyCode = companyData?.companyCode || companyData?.tenantId || '';
-  const baseUrl = window.location.origin;
 
   // Obtener vendedores únicos de los clientes
   const customerSellers = useMemo(() => {
@@ -79,121 +70,12 @@ export default function ClientsPage() {
     }
     
     return result;
-  }, [customers, searchTerm, filterSellerId]);
+  }, [customers, searchTerm, filterSellerId, commissionistSellerId]);
 
   const getSellerName = useCallback((sellerId: number) => {
     const seller = sellers.find(s => s.id === sellerId);
     return seller ? `${seller.name} ${seller.lastName}` : 'Sin asignar';
   }, [sellers]);
-
-  // Generar URL de consulta para el cliente
-  const getCustomerHistoryUrl = useCallback((customer: Customer) => {
-    const params = new URLSearchParams({
-      phone: customer.phone,
-      rfc: customer.rfc || 'XAXX010101000',
-      code: companyCode,
-    });
-    return `${baseUrl}/consulta?${params.toString()}`;
-  }, [baseUrl, companyCode]);
-
-  // Copiar link al portapapeles
-  const handleCopyLink = useCallback(async (customer: Customer) => {
-    const url = getCustomerHistoryUrl(customer);
-    await navigator.clipboard.writeText(url);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
-  }, [getCustomerHistoryUrl]);
-
-  // Ver historial del cliente
-  const handleViewHistory = useCallback((customer: Customer) => {
-    setSelectedCustomer(customer);
-    setShowHistoryModal(true);
-    
-    // Cargar historial
-    historyLookup.mutate({
-      phone: customer.phone,
-      rfc: customer.rfc || 'XAXX010101000',
-      companyCode: companyCode,
-    });
-  }, [companyCode, historyLookup]);
-
-  const closeHistoryModal = useCallback(() => {
-    setShowHistoryModal(false);
-    setSelectedCustomer(null);
-  }, []);
-
-  // Calcular totales del historial
-  const historyTotals = useMemo(() => {
-    const sales = historyLookup.data?.sales ?? [];
-    const totalSales = sales.reduce((acc, s) => acc + s.totalAmount, 0);
-    const allPayments = sales
-      .flatMap((s) => s.payments ?? s.payment ?? [])
-      .filter((p) => p.paymentTypeId === 2);
-
-    const totalPayments = allPayments.reduce((acc, p) => acc + p.amount, 0);
-
-    const lastPaymentDate = allPayments
-      .map((p) => p.date)
-      .filter(Boolean)
-      .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ?? null;
-
-    return {
-      totalSales,
-      totalPayments,
-      pending: Math.max(0, totalSales - totalPayments),
-      lastPaymentDate,
-    };
-  }, [historyLookup.data?.sales]);
-
-  // Timeline del historial
-  const historyTimeline = useMemo(() => {
-    const sales = historyLookup.data?.sales ?? [];
-    const items: Array<{
-      id: string;
-      type: 'sale' | 'payment';
-      date: string;
-      saleId: number;
-      amount: number;
-      paymentMethod?: string;
-      reference?: string;
-      isPaid?: boolean;
-      description?: string;
-    }> = [];
-
-    sales.forEach((sale: Sale) => {
-      items.push({
-        id: `sale-${sale.id}`,
-        type: 'sale',
-        date: sale.date,
-        saleId: sale.id,
-        amount: sale.totalAmount,
-        isPaid: sale.isPaid,
-        description: sale.productDescription,
-      });
-
-      (sale.payments ?? sale.payment ?? [])
-        .filter((payment: Payment) => payment.paymentTypeId === 2)
-        .forEach((payment: Payment) => {
-          items.push({
-            id: `payment-${payment.id}`,
-            type: 'payment',
-            date: payment.date || sale.date,
-            saleId: sale.id,
-            amount: payment.amount,
-            paymentMethod: payment.paymentMethod,
-            reference: payment.reference,
-          });
-        });
-    });
-
-    return items.sort((a, b) => {
-      const diff = new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime();
-      if (diff !== 0) return diff;
-      // Secondary sort: payments after their sale on same date
-      if (a.type !== b.type) return a.type === 'sale' ? -1 : 1;
-      return 0;
-    });
-  }, [historyLookup.data?.sales]);
 
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
@@ -341,26 +223,7 @@ export default function ClientsPage() {
             isActions: true,
             render: (c) => (
               <>
-                <OverlayTrigger placement="top" overlay={<Tooltip>Ver historial</Tooltip>}>
-                  <Button
-                    size="sm"
-                    variant="outline-success"
-                    onClick={() => handleViewHistory(c)}
-                    aria-label={`Ver historial de ${c.name}`}
-                  >
-                    <FiEye />
-                  </Button>
-                </OverlayTrigger>
-                <OverlayTrigger placement="top" overlay={<Tooltip>Copiar link</Tooltip>}>
-                  <Button
-                    size="sm"
-                    variant="outline-secondary"
-                    onClick={() => handleCopyLink(c)}
-                    aria-label={`Copiar link para ${c.name}`}
-                  >
-                    <FiLink />
-                  </Button>
-                </OverlayTrigger>
+                <CustomerHistoryActions customer={c} />
                 <OverlayTrigger placement="top" overlay={<Tooltip>Editar</Tooltip>}>
                   <Button
                     size="sm"
@@ -495,168 +358,6 @@ export default function ClientsPage() {
         <ErrorAlert error={updateMutation.error} title="Error al actualizar cliente" />
       )}
 
-      {/* Link Copied Alert */}
-      {copiedLink && (
-        <div className="position-fixed bottom-0 end-0 p-3" style={{ zIndex: 1050 }}>
-          <Alert variant="success" className="d-flex align-items-center mb-0">
-            <FiCheckCircle className="me-2" />
-            Link copiado al portapapeles
-          </Alert>
-        </div>
-      )}
-
-      {/* History Modal */}
-      <Modal show={showHistoryModal} onHide={closeHistoryModal} centered size="xl">
-        <Modal.Header closeButton>
-          <Modal.Title>
-            Historial de {selectedCustomer?.name} {selectedCustomer?.lastName}
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          {historyLookup.isPending && (
-            <div className="text-center py-5">
-              <LoadingSpinner message="Cargando historial..." />
-            </div>
-          )}
-
-          {historyLookup.isError && (
-            <Alert variant="danger">
-              Error al cargar el historial. Verifica que el cliente tenga RFC registrado.
-            </Alert>
-          )}
-
-          {historyLookup.isSuccess && (
-            <>
-              {/* Totales */}
-              <Row className="g-3 mb-4">
-                <Col xs={6} md={3}>
-                  <Card className="border-0 shadow-sm h-100">
-                    <Card.Body>
-                      <small className="text-muted d-block">Total compras</small>
-                      <h4 className="mb-0">${historyTotals.totalSales.toLocaleString()}</h4>
-                    </Card.Body>
-                  </Card>
-                </Col>
-                <Col xs={6} md={3}>
-                  <Card className="border-0 shadow-sm h-100">
-                    <Card.Body>
-                      <small className="text-muted d-block">Total abonado</small>
-                      <h4 className="mb-0 text-success">${historyTotals.totalPayments.toLocaleString()}</h4>
-                    </Card.Body>
-                  </Card>
-                </Col>
-                <Col xs={6} md={3}>
-                  <Card className="border-0 shadow-sm h-100">
-                    <Card.Body>
-                      <small className="text-muted d-block">Saldo pendiente</small>
-                      <h4 className="mb-0 text-danger">${historyTotals.pending.toLocaleString()}</h4>
-                    </Card.Body>
-                  </Card>
-                </Col>
-                <Col xs={6} md={3}>
-                  <Card className="border-0 shadow-sm h-100 border-start border-4 border-primary">
-                    <Card.Body>
-                      <small className="text-muted d-block">Último abono</small>
-                      {historyTotals.lastPaymentDate ? (
-                        <span className="fw-semibold text-primary fs-6">
-                          {new Date(historyTotals.lastPaymentDate).toLocaleDateString('es-MX', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric',
-                          })}
-                        </span>
-                      ) : (
-                        <span className="text-muted fst-italic fs-6">Sin abonos</span>
-                      )}
-                    </Card.Body>
-                  </Card>
-                </Col>
-              </Row>
-
-              {/* Timeline */}
-              {historyTimeline.length === 0 ? (
-                <Alert variant="info">
-                  Este cliente no tiene movimientos registrados.
-                </Alert>
-              ) : (
-                <ResponsiveTable
-                  data={historyTimeline}
-                  keyExtractor={(item) => item.id}
-                  striped={false}
-                  bordered={false}
-                  columns={[
-                    {
-                      key: 'tipo',
-                      header: 'Tipo / Fecha',
-                      isCardTitle: true,
-                      render: (item) => (
-                        <span>
-                          {item.type === 'sale' ? (
-                            <Badge bg="primary" className="me-2"><FiShoppingCart className="me-1" />Compra</Badge>
-                          ) : (
-                            <Badge bg="success" className="me-2"><FiDollarSign className="me-1" />Abono</Badge>
-                          )}
-                          <small className="text-muted">{new Date(item.date).toLocaleDateString('es-MX')}</small>
-                        </span>
-                      ),
-                    },
-                    {
-                      key: 'venta',
-                      header: 'Venta',
-                      render: (item) => <Badge bg="light" text="dark">#{item.saleId}</Badge>,
-                    },
-                    {
-                      key: 'monto',
-                      header: 'Monto',
-                      className: 'fw-semibold',
-                      render: (item) => `$${item.amount.toLocaleString()}`,
-                    },
-                    {
-                      key: 'detalle',
-                      header: 'Detalle',
-                      render: (item) =>
-                        item.type === 'sale' ? (
-                          <span className="text-muted">{item.description || 'Registro de venta'}</span>
-                        ) : (
-                          <span>
-                            {item.paymentMethod}
-                            {item.reference ? <span className="text-muted"> - {item.reference}</span> : null}
-                          </span>
-                        ),
-                    },
-                    {
-                      key: 'estado',
-                      header: 'Estado',
-                      render: (item) =>
-                        item.type === 'sale' ? (
-                          <Badge bg={item.isPaid ? 'success' : 'warning'}>
-                            {item.isPaid ? 'Liquidada' : 'Pendiente'}
-                          </Badge>
-                        ) : (
-                          <Badge bg="secondary"><FiClock className="me-1" />Aplicado</Badge>
-                        ),
-                    },
-                  ]}
-                />
-              )}
-            </>
-          )}
-        </Modal.Body>
-        <Modal.Footer>
-          {selectedCustomer && (
-            <Button 
-              variant="outline-secondary" 
-              onClick={() => handleCopyLink(selectedCustomer)}
-            >
-              <FiCopy className="me-2" />
-              Copiar link para cliente
-            </Button>
-          )}
-          <Button variant="secondary" onClick={closeHistoryModal}>
-            Cerrar
-          </Button>
-        </Modal.Footer>
-      </Modal>
     </div>
   );
 }

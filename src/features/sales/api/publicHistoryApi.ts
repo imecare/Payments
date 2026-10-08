@@ -14,6 +14,8 @@ export interface PublicHistoryResponse {
   customerName?: string;
   companyName?: string;
   hasMovements?: boolean;
+  totalActivePurchases: number;
+  totalPaidOnActivePurchases: number;
   sales: Sale[];
 }
 
@@ -24,11 +26,15 @@ interface PublicHistoryEnvelope {
     customerName?: string;
     companyName?: string;
     hasMovements?: boolean;
+    totalActivePurchases?: number;
+    totalPaidOnActivePurchases?: number;
     sales?: Sale[];
   };
   customerName?: string;
   companyName?: string;
   hasMovements?: boolean;
+  totalActivePurchases?: number;
+  totalPaidOnActivePurchases?: number;
   sales?: Sale[];
 }
 
@@ -47,6 +53,9 @@ function normalizeResponse(payload: PublicHistoryEnvelope): PublicHistoryRespons
     customerName: data?.customerName ?? payload.customerName,
     companyName: data?.companyName ?? payload.companyName,
     hasMovements: data?.hasMovements ?? payload.hasMovements,
+    totalActivePurchases: data?.totalActivePurchases ?? payload.totalActivePurchases ?? 0,
+    totalPaidOnActivePurchases:
+      data?.totalPaidOnActivePurchases ?? payload.totalPaidOnActivePurchases ?? 0,
     sales: data?.sales ?? payload.sales ?? [],
   };
 }

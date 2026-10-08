@@ -5,6 +5,8 @@ import {
 } from 'react-bootstrap';
 import { FiSearch, FiDollarSign, FiCheckCircle, FiClock, FiCircle } from 'react-icons/fi';
 import { useCustomerDebts } from '../features/sales/hooks/useSales';
+import { useCustomers } from '../features/customers/hooks/useCustomers';
+import CustomerHistoryActions from '../features/customers/components/CustomerHistoryActions';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorAlert from '../components/ErrorAlert';
 import StatCard from '../components/StatCard';
@@ -136,6 +138,7 @@ function getPaymentStatusForDebt(
 // ============================================
 export default function AbonosPage() {
   const { data: debts = [], isLoading, error, refetch } = useCustomerDebts();
+  const { data: customers = [], isLoading: customersLoading, error: customersError } = useCustomers();
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -212,8 +215,10 @@ export default function AbonosPage() {
   // ----------------------------------------
   // Render
   // ----------------------------------------
-  if (isLoading) return <LoadingSpinner fullPage message="Cargando deudas..." />;
-  if (error)     return <ErrorAlert error={error} title="Error al cargar deudas" onRetry={refetch} />;
+  if (isLoading || customersLoading) return <LoadingSpinner fullPage message="Cargando deudas..." />;
+  if (error || customersError) {
+    return <ErrorAlert error={error ?? customersError} title="Error al cargar deudas" onRetry={refetch} />;
+  }
 
   return (
     <Container fluid className="py-4">
@@ -335,12 +340,13 @@ export default function AbonosPage() {
                 <th>Abonado</th>
                 <th>Deuda</th>
                 <th>Último abono</th>
+                <th className="text-center">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {filteredDebts.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-4 text-muted">
+                  <td colSpan={9} className="text-center py-4 text-muted">
                     No se encontraron clientes con deuda.
                   </td>
                 </tr>
@@ -383,6 +389,13 @@ export default function AbonosPage() {
                         {debt.lastPaymentDate
                           ? new Date(debt.lastPaymentDate).toLocaleDateString('es-MX')
                           : 'Sin abonos'}
+                      </td>
+                      <td data-label="Acciones" className="text-center">
+                        {customers.find((customer) => customer.id === debt.customerId) ? (
+                          <CustomerHistoryActions
+                            customer={customers.find((customer) => customer.id === debt.customerId)!}
+                          />
+                        ) : null}
                       </td>
                     </tr>
                   );

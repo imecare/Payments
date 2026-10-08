@@ -113,12 +113,9 @@ export default function ConsultaPage() {
   }, [historyFilter, sales, timeline]);
 
   const totals = useMemo(() => {
-    const totalSales = sales.reduce((acc, s) => acc + s.totalAmount, 0);
     const allPayments = sales
       .flatMap((s) => s.payments ?? s.payment ?? [])
       .filter((p) => p.paymentTypeId === 2);
-
-    const totalPayments = allPayments.reduce((acc, p) => acc + p.amount, 0);
 
     const lastPaymentDate = allPayments
       .map((p) => p.date)
@@ -126,12 +123,16 @@ export default function ConsultaPage() {
       .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ?? null;
 
     return {
-      totalSales,
-      totalPayments,
-      pending: Math.max(0, totalSales - totalPayments),
+      totalSales: lookup.data?.totalActivePurchases ?? 0,
+      totalPayments: lookup.data?.totalPaidOnActivePurchases ?? 0,
+      pending: Math.max(
+        0,
+        (lookup.data?.totalActivePurchases ?? 0) -
+          (lookup.data?.totalPaidOnActivePurchases ?? 0)
+      ),
       lastPaymentDate,
     };
-  }, [sales]);
+  }, [lookup.data, sales]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -303,7 +304,7 @@ export default function ConsultaPage() {
                 <Col xs={6} md={3}>
                   <Card className="border-0 shadow-sm h-100">
                     <Card.Body>
-                      <small className="text-muted d-block">Total compras</small>
+                      <small className="text-muted d-block">Total compras activas</small>
                       <h4 className="mb-0">${totals.totalSales.toLocaleString()}</h4>
                     </Card.Body>
                   </Card>
@@ -311,7 +312,7 @@ export default function ConsultaPage() {
                 <Col xs={6} md={3}>
                   <Card className="border-0 shadow-sm h-100">
                     <Card.Body>
-                      <small className="text-muted d-block">Total abonado</small>
+                      <small className="text-muted d-block">Total abonado a compras activas</small>
                       <h4 className="mb-0 text-success">${totals.totalPayments.toLocaleString()}</h4>
                     </Card.Body>
                   </Card>
