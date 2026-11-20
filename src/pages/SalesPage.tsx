@@ -877,6 +877,7 @@ export default function SalesPage() {
                     as="button"
                     type="button"
                     eventKey="credit"
+                    className={!formData.isCashSale ? 'bg-primary text-white border-primary' : undefined}
                     id={`${saleTypeId}-credit`}
                     aria-controls={`${saleTypeId}-panel`}
                     disabled={!!editingId || createMutation.isPending || updateMutation.isPending}
@@ -889,6 +890,7 @@ export default function SalesPage() {
                     as="button"
                     type="button"
                     eventKey="cash"
+                    className={formData.isCashSale ? 'bg-primary text-white border-primary' : undefined}
                     id={`${saleTypeId}-cash`}
                     aria-controls={`${saleTypeId}-panel`}
                     disabled={!!editingId || createMutation.isPending || updateMutation.isPending}
