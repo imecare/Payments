@@ -2,7 +2,7 @@
 
 ## Payments: contado y reporte de deudas
 
-- En **Ventas > Nueva venta**, elegir **A credito / De contado**. Contado exige
+- En **Ventas > Nueva venta**, elegir la pestana **A credito / De contado**. Contado exige
   comisionista y metodo de cobro (efectivo, tarjeta o transferencia).
 - Sin cliente seleccionado, el backend crea/reutiliza un cliente interno
   **Publico en general por empresa**, sin telefono, RFC ni vendedor fijo.

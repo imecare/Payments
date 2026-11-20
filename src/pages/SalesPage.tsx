@@ -1,7 +1,7 @@
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef, useId } from 'react';
 import { 
   Button, Table, Modal, Form, Row, Col, Badge, InputGroup, 
-  ProgressBar, Card, Alert 
+  ProgressBar, Card, Alert, Nav
 } from 'react-bootstrap';
 import { 
   FiSearch, FiPlus, FiDollarSign, FiCheckCircle, FiClock, 
@@ -278,6 +278,7 @@ function SaleDetailModal({
 }
 
 export default function SalesPage() {
+  const saleTypeId = useId();
   // Data fetching with React Query
   const { data: sales = [], isLoading, error, refetch } = useSales();
   const { data: customers = [], isLoading: customersLoading } = useCustomers();
@@ -857,21 +858,50 @@ export default function SalesPage() {
             {createMutation.isError && <ErrorAlert error={createMutation.error} title="Error al crear venta" />}
             {updateMutation.isError && <ErrorAlert error={updateMutation.error} title="Error al actualizar venta" />}
             <fieldset disabled={createMutation.isPending || updateMutation.isPending}>
-            <Form.Group className="mb-3">
-              <Form.Label>Tipo de venta</Form.Label>
-              <Form.Select
+            <Nav
+                variant="tabs"
+                fill
+                role="tablist"
+                className="mb-3"
                 aria-label="Tipo de venta"
-                value={formData.isCashSale ? 'cash' : 'credit'}
-                disabled={!!editingId}
-                onChange={(e) => {
-                  setFormData({ ...formData, isCashSale: e.target.value === 'cash' });
-                  setFormErrors({});
+                activeKey={formData.isCashSale ? 'cash' : 'credit'}
+                onSelect={(key) => {
+                  if (key === 'credit' || key === 'cash') {
+                    setFormData({ ...formData, isCashSale: key === 'cash' });
+                    setFormErrors({});
+                  }
                 }}
               >
-                <option value="credit">A crédito</option>
-                <option value="cash">De contado</option>
-              </Form.Select>
-            </Form.Group>
+                <Nav.Item>
+                  <Nav.Link
+                    as="button"
+                    type="button"
+                    eventKey="credit"
+                    id={`${saleTypeId}-credit`}
+                    aria-controls={`${saleTypeId}-panel`}
+                    disabled={!!editingId || createMutation.isPending || updateMutation.isPending}
+                  >
+                    A crédito
+                  </Nav.Link>
+                </Nav.Item>
+                <Nav.Item>
+                  <Nav.Link
+                    as="button"
+                    type="button"
+                    eventKey="cash"
+                    id={`${saleTypeId}-cash`}
+                    aria-controls={`${saleTypeId}-panel`}
+                    disabled={!!editingId || createMutation.isPending || updateMutation.isPending}
+                  >
+                    De contado
+                  </Nav.Link>
+                </Nav.Item>
+            </Nav>
+            <div
+              role="tabpanel"
+              id={`${saleTypeId}-panel`}
+              aria-labelledby={`${saleTypeId}-${formData.isCashSale ? 'cash' : 'credit'}`}
+            >
             {formData.isCashSale && (
               <Alert variant="info">
                 {editingId
@@ -1076,6 +1106,7 @@ export default function SalesPage() {
                 </Row>
               </Card.Body>
             </Card>
+            </div>
             </fieldset>
           </Modal.Body>
           <Modal.Footer>
