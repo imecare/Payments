@@ -3,7 +3,9 @@ import {
   Container, Row, Col, Card, Table,
   Button, InputGroup, Form, OverlayTrigger, Tooltip,
 } from 'react-bootstrap';
-import { FiSearch, FiDollarSign, FiCheckCircle, FiClock, FiCircle } from 'react-icons/fi';
+import { FiSearch, FiDollarSign, FiCheckCircle, FiClock, FiCircle, FiDownload } from 'react-icons/fi';
+import { useMutation } from '@tanstack/react-query';
+import { salesApi } from '../features/sales/api/salesApi';
 import { useCustomerDebts } from '../features/sales/hooks/useSales';
 import { useCustomers } from '../features/customers/hooks/useCustomers';
 import CustomerHistoryActions from '../features/customers/components/CustomerHistoryActions';
@@ -139,6 +141,22 @@ function getPaymentStatusForDebt(
 export default function AbonosPage() {
   const { data: debts = [], isLoading, error, refetch } = useCustomerDebts();
   const { data: customers = [], isLoading: customersLoading, error: customersError } = useCustomers();
+  const exportMutation = useMutation({
+    mutationFn: async () => {
+      const file = await salesApi.getDebtsExcel();
+      const url = URL.createObjectURL(file);
+      const link = document.createElement('a');
+      try {
+        link.href = url;
+        link.download = `DeudasActivas_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        document.body.appendChild(link);
+        link.click();
+      } finally {
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+    },
+  });
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -151,7 +169,9 @@ export default function AbonosPage() {
   // ----------------------------------------
   const debtSellers = useMemo(() => {
     const sellers = new Map<number, string>();
-    debts.forEach((debt) => sellers.set(debt.sellerId, debt.sellerName));
+    debts.forEach((debt) => {
+      if (debt.sellerId !== null) sellers.set(debt.sellerId, debt.sellerName);
+    });
     return [...sellers.entries()]
       .map(([id, name]) => ({ id, name }))
       .sort((a, b) => a.name.localeCompare(b.name));
@@ -228,7 +248,17 @@ export default function AbonosPage() {
           <h2 className="fw-bold mb-0">Deudas</h2>
           <p className="text-muted mb-0">Consulta los clientes con saldo pendiente</p>
         </div>
+        <Button
+          variant="outline-success"
+          onClick={() => exportMutation.mutate()}
+          disabled={exportMutation.isPending}
+          title="Descarga todas las deudas activas de la empresa, sin aplicar los filtros de pantalla"
+        >
+          <FiDownload className="me-2" />
+          {exportMutation.isPending ? 'Generando Excel...' : 'Descargar Excel (todas)'}
+        </Button>
       </div>
+      {exportMutation.isError && <ErrorAlert error={exportMutation.error} title="Error al descargar Excel" />}
 
       {/* Stats */}
       <Row className="g-3 mb-4">

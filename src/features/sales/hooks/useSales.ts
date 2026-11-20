@@ -75,6 +75,8 @@ export function useCreateSale() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: saleKeys.all });
       queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }

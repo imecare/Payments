@@ -21,7 +21,7 @@ const mapCustomerToForm = (c: Customer): CreateCustomerDTO => ({
   lastName: c.lastName,
   rfc: c.rfc,
   phone: c.phone,
-  sellerId: c.sellerId,
+  sellerId: c.sellerId ?? 0,
 });
 
 export default function ClientsPage() {
@@ -72,7 +72,7 @@ export default function ClientsPage() {
     return result;
   }, [customers, searchTerm, filterSellerId, commissionistSellerId]);
 
-  const getSellerName = useCallback((sellerId: number) => {
+  const getSellerName = useCallback((sellerId: number | null) => {
     const seller = sellers.find(s => s.id === sellerId);
     return seller ? `${seller.name} ${seller.lastName}` : 'Sin asignar';
   }, [sellers]);

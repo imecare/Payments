@@ -30,6 +30,9 @@ const emptySale = (): CreateSaleDTO => ({
   productDescription: '',
   commissionAmount: 0,
   date: todayISO(),
+  isCashSale: false,
+  paymentMethod: 'Cash',
+  idempotencyKey: crypto.randomUUID(),
 });
 
 // Componente para mostrar detalles de una venta
@@ -143,6 +146,7 @@ function SaleDetailModal({
           <Col md={6}>
             <h6>Estado</h6>
             <div className="mb-2">
+              <Badge bg="info" className="me-2">{sale.isCashSale ? 'Contado' : 'Crédito'}</Badge>
               <Badge bg={sale.isPaid ? 'success' : 'warning'} className="me-2">
                 {sale.isPaid ? 'Liquidada' : 'Pendiente de pago'}
               </Badge>
@@ -300,7 +304,7 @@ export default function SalesPage() {
   const [sortDate, setSortDate] = useState<'desc' | 'asc'>('desc');
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [lastSavedInfo, setLastSavedInfo] = useState<{ id: number; isEdit: boolean } | null>(null);
+  const [lastSavedInfo, setLastSavedInfo] = useState<{ id: number; isEdit: boolean; isCashSale: boolean } | null>(null);
   
   // Ref para prevenir doble envío
   const isSubmittingRef = useRef(false);
@@ -323,7 +327,7 @@ export default function SalesPage() {
       const term = searchTerm.toLowerCase();
       result = result.filter(s => {
         const customer = customers.find(c => c.id === s.customerId);
-        const customerName = customer ? `${customer.name} ${customer.lastName}`.toLowerCase() : '';
+        const customerName = (s.customerName ?? (customer ? `${customer.name} ${customer.lastName}` : '')).toLowerCase();
         const desc = (s.productDescription ?? '').toLowerCase();
         return customerName.includes(term) || s.id.toString().includes(term) || desc.includes(term);
       });
@@ -360,8 +364,8 @@ export default function SalesPage() {
   // Get customer/seller names
   const getCustomerName = useCallback((customerId: number) => {
     const customer = customers.find(c => c.id === customerId);
-    return customer ? `${customer.name} ${customer.lastName}` : 'Desconocido';
-  }, [customers]);
+    return customer ? `${customer.name} ${customer.lastName}` : sales.find(s => s.customerId === customerId)?.customerName ?? 'Desconocido';
+  }, [customers, sales]);
 
   const getSellerName = useCallback((sellerId: number | null) => {
     if (!sellerId) return 'Sin asignar';
@@ -392,7 +396,9 @@ export default function SalesPage() {
       costPrice: sale.costPrice,
       productDescription: sale.productDescription ?? '',
       commissionAmount: sale.commissionAmount,
-      date: sale.date ? sale.date.split('T')[0] : todayISO(),
+      date: sale.date ? (sale.isCashSale ? sale.date : sale.date.split('T')[0]) : todayISO(),
+      isCashSale: sale.isCashSale ?? false,
+      paymentMethod: sale.payments?.find(p => p.paymentTypeId === 2)?.paymentMethod ?? 'Cash',
     });
     setFormErrors({});
     setShowModal(true);
@@ -418,8 +424,14 @@ export default function SalesPage() {
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
     
-    if (formData.customerId <= 0) {
+    if (formData.customerId <= 0 && (!formData.isCashSale || editingId)) {
       errors.customerId = 'Debe seleccionar un cliente';
+    }
+    if (formData.isCashSale && !formData.sellerId) {
+      errors.sellerId = 'Debe seleccionar un comisionista';
+    }
+    if (!formData.productDescription.trim()) {
+      errors.productDescription = 'La descripción del producto es obligatoria';
     }
     
     if (formData.totalAmount <= 0) {
@@ -485,7 +497,7 @@ export default function SalesPage() {
       setFormErrors({});
       
       // Mostrar modal de éxito
-      setLastSavedInfo({ id: savedId, isEdit: isEditing });
+      setLastSavedInfo({ id: savedId, isEdit: isEditing, isCashSale: !!formData.isCashSale });
       setShowSuccessModal(true);
       
     } catch (err) {
@@ -710,6 +722,11 @@ export default function SalesPage() {
             ),
           },
           {
+            key: 'saleType',
+            header: 'Tipo',
+            render: (s) => <Badge bg={s.isCashSale ? 'info' : 'secondary'}>{s.isCashSale ? 'Contado' : 'Crédito'}</Badge>,
+          },
+          {
             key: 'customer',
             header: 'Cliente',
             render: (s) => getCustomerName(s.customerId),
@@ -812,7 +829,8 @@ export default function SalesPage() {
                   variant="outline-danger"
                   onClick={() => handleDeleteClick(s)}
                   aria-label="Eliminar venta"
-                  title="Eliminar"
+                  title={s.isCashSale ? 'No se puede eliminar una venta de contado cobrada' : 'Eliminar'}
+                  disabled={s.isCashSale}
                 >
                   <FiTrash2 />
                 </Button>
@@ -836,23 +854,55 @@ export default function SalesPage() {
         </Modal.Header>
         <Form onSubmit={handleSave} noValidate>
           <Modal.Body>
+            {createMutation.isError && <ErrorAlert error={createMutation.error} title="Error al crear venta" />}
+            {updateMutation.isError && <ErrorAlert error={updateMutation.error} title="Error al actualizar venta" />}
+            <fieldset disabled={createMutation.isPending || updateMutation.isPending}>
+            <Form.Group className="mb-3">
+              <Form.Label>Tipo de venta</Form.Label>
+              <Form.Select
+                aria-label="Tipo de venta"
+                value={formData.isCashSale ? 'cash' : 'credit'}
+                disabled={!!editingId}
+                onChange={(e) => {
+                  setFormData({ ...formData, isCashSale: e.target.value === 'cash' });
+                  setFormErrors({});
+                }}
+              >
+                <option value="credit">A crédito</option>
+                <option value="cash">De contado</option>
+              </Form.Select>
+            </Form.Group>
+            {formData.isCashSale && (
+              <Alert variant="info">
+                {editingId
+                  ? 'Venta de contado cobrada: el total, la fecha y el cobro no se pueden modificar.'
+                  : 'Se registrará la venta y su cobro completo en la misma fecha, con saldo $0. La comisión quedará pendiente de pagar.'}
+              </Alert>
+            )}
             <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
-                  <Form.Label>Cliente *</Form.Label>
+                  <Form.Label>{formData.isCashSale ? 'Cliente (opcional)' : 'Cliente *'}</Form.Label>
                   <SearchableSelect
-                    options={customers.map((c): SelectOption => ({
+                    options={[
+                      ...(formData.isCashSale && !editingId ? [{ value: 0, label: 'Público en general' }] : []),
+                      ...(editingId && formData.customerId > 0 && !customers.some(c => c.id === formData.customerId)
+                        ? [{ value: formData.customerId, label: getCustomerName(formData.customerId) }] : []),
+                      ...customers.map((c): SelectOption => ({
                       value: c.id,
                       label: `${c.name} ${c.lastName}`,
                       sublabel: c.phone,
-                    }))}
+                    }))]}
                     value={formData.customerId}
                     onChange={(v) => setFormData({ ...formData, customerId: v })}
                     placeholder="Buscar por nombre o teléfono..."
-                    emptyLabel={customersLoading ? 'Cargando clientes...' : 'Selecciona un cliente'}
+                    emptyLabel={formData.isCashSale ? 'Público en general' : customersLoading ? 'Cargando clientes...' : 'Selecciona un cliente'}
                     isInvalid={!!formErrors.customerId}
                     disabled={customersLoading}
                   />
+                  {formData.isCashSale && !editingId && (
+                    <Form.Text>Sin cliente seleccionado se usará Público en general de esta empresa.</Form.Text>
+                  )}
                   {formErrors.customerId && (
                     <div className="invalid-feedback d-block">{formErrors.customerId}</div>
                   )}
@@ -860,7 +910,7 @@ export default function SalesPage() {
               </Col>
               <Col md={6}>
                 <Form.Group className="mb-3">
-                  <Form.Label>Vendedor</Form.Label>
+                  <Form.Label>{formData.isCashSale ? 'Comisionista *' : 'Vendedor'}</Form.Label>
                   <Form.Select
                     value={formData.sellerId ?? 0}
                     onChange={(e) => setFormData({ 
@@ -868,6 +918,7 @@ export default function SalesPage() {
                       sellerId: Number(e.target.value) || undefined 
                     })}
                     disabled={sellersLoading}
+                    isInvalid={!!formErrors.sellerId}
                   >
                     <option value={0}>Sin asignar</option>
                     {sellers.map((seller) => (
@@ -876,7 +927,8 @@ export default function SalesPage() {
                       </option>
                     ))}
                   </Form.Select>
-                  {!formData.sellerId && (
+                  <Form.Control.Feedback type="invalid">{formErrors.sellerId}</Form.Control.Feedback>
+                  {!formData.sellerId && !formData.isCashSale && (
                     <Alert variant="warning" className="mt-2 mb-0 py-2 d-flex align-items-center">
                       <FiAlertTriangle className="me-2 flex-shrink-0" />
                       <small>No has seleccionado un vendedor. La venta quedará sin vendedor asignado.</small>
@@ -892,9 +944,10 @@ export default function SalesPage() {
                   <Form.Label>Fecha de la venta</Form.Label>
                   <Form.Control
                     type="date"
-                    value={formData.date ?? todayISO()}
+                    value={formData.date?.split('T')[0] ?? todayISO()}
                     onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                     max={todayISO()}
+                    disabled={!!editingId && formData.isCashSale}
                   />
                   <Form.Text className="text-muted">
                     Por defecto es el día de hoy.
@@ -910,11 +963,33 @@ export default function SalesPage() {
                     placeholder="Descripción detallada de los productos..."
                     value={formData.productDescription}
                     onChange={(e) => setFormData({ ...formData, productDescription: e.target.value })}
+                    isInvalid={!!formErrors.productDescription}
+                    maxLength={500}
                   />
+                  <Form.Control.Feedback type="invalid">{formErrors.productDescription}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
             </Row>
 
+            {formData.isCashSale && !editingId && (
+              <Form.Group className="mb-3">
+                <Form.Label>Método de cobro *</Form.Label>
+                <Form.Select
+                  aria-label="Método de cobro"
+                  value={formData.paymentMethod}
+                  onChange={(e) => {
+                    const method = e.target.value;
+                    if (method === 'Cash' || method === 'Card' || method === 'Transfer') {
+                      setFormData({ ...formData, paymentMethod: method });
+                    }
+                  }}
+                >
+                  <option value="Cash">Efectivo</option>
+                  <option value="Card">Tarjeta</option>
+                  <option value="Transfer">Transferencia</option>
+                </Form.Select>
+              </Form.Group>
+            )}
             <Row>
               <Col md={4}>
                 <Form.Group className="mb-3">
@@ -929,6 +1004,7 @@ export default function SalesPage() {
                       onChange={(e) => setFormData({ ...formData, totalAmount: Number(e.target.value) })}
                       isInvalid={!!formErrors.totalAmount}
                       placeholder="0.00"
+                      disabled={!!editingId && formData.isCashSale}
                     />
                     <Form.Control.Feedback type="invalid">
                       {formErrors.totalAmount}
@@ -1000,13 +1076,14 @@ export default function SalesPage() {
                 </Row>
               </Card.Body>
             </Card>
+            </fieldset>
           </Modal.Body>
           <Modal.Footer>
             <Button variant="secondary" onClick={handleCloseModal} disabled={createMutation.isPending || updateMutation.isPending}>
               Cancelar
             </Button>
             <Button type="submit" variant="primary" disabled={createMutation.isPending || updateMutation.isPending}>
-              {(createMutation.isPending || updateMutation.isPending) ? 'Guardando...' : editingId ? 'Guardar cambios' : 'Crear Venta'}
+              {(createMutation.isPending || updateMutation.isPending) ? 'Guardando...' : editingId ? 'Guardar cambios' : formData.isCashSale ? 'Registrar venta y cobro' : 'Crear Venta'}
             </Button>
           </Modal.Footer>
         </Form>
@@ -1080,12 +1157,6 @@ export default function SalesPage() {
       </Modal>
 
       {/* Error Alerts */}
-      {createMutation.isError && (
-        <ErrorAlert error={createMutation.error} title="Error al crear venta" />
-      )}
-      {updateMutation.isError && (
-        <ErrorAlert error={updateMutation.error} title="Error al actualizar venta" />
-      )}
       {deleteMutation.isError && (
         <ErrorAlert error={deleteMutation.error} title="Error al eliminar venta" />
       )}
@@ -1109,7 +1180,9 @@ export default function SalesPage() {
             }
           </h5>
           <p className="text-muted mb-0">
-            Los datos han sido guardados en el sistema.
+            {lastSavedInfo?.isCashSale && !lastSavedInfo.isEdit
+              ? 'Venta y cobro registrados. Saldo $0; comisión pendiente de pagar.'
+              : 'Los datos han sido guardados en el sistema.'}
           </p>
         </Modal.Body>
         <Modal.Footer className="border-0 pt-0 justify-content-center">

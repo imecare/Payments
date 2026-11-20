@@ -85,7 +85,7 @@ export default function PaymentsPage() {
       const term = searchTerm.toLowerCase();
       result = result.filter(s => {
         const customer = customers.find(c => c.id === s.customerId);
-        const customerName = customer ? `${customer.name} ${customer.lastName}`.toLowerCase() : '';
+        const customerName = (s.customerName ?? (customer ? `${customer.name} ${customer.lastName}` : '')).toLowerCase();
         return customerName.includes(term) || s.id.toString().includes(term);
       });
     }
@@ -102,8 +102,8 @@ export default function PaymentsPage() {
   // Get customer name
   const getCustomerName = useCallback((customerId: number) => {
     const customer = customers.find(c => c.id === customerId);
-    return customer ? `${customer.name} ${customer.lastName}` : 'Cliente desconocido';
-  }, [customers]);
+    return customer ? `${customer.name} ${customer.lastName}` : sales.find(s => s.customerId === customerId)?.customerName ?? 'Cliente desconocido';
+  }, [customers, sales]);
   
   // Handlers
   const handleSelectSale = useCallback((sale: Sale) => {

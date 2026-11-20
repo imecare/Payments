@@ -61,8 +61,7 @@ export default function CommissionistDashboardPage() {
     const term = searchTerm.toLowerCase();
     return mySales.filter((sale) => {
       const customer = customers.find((c) => c.id === sale.customerId);
-      if (!customer) return false;
-      const fullName = `${customer.name} ${customer.lastName}`.toLowerCase();
+      const fullName = (sale.customerName ?? (customer ? `${customer.name} ${customer.lastName}` : '')).toLowerCase();
       return fullName.includes(term);
     });
   }, [mySales, customers, searchTerm]);
@@ -125,7 +124,7 @@ export default function CommissionistDashboardPage() {
 
   const getCustomerName = (customerId: number) => {
     const customer = customers.find((item) => item.id === customerId);
-    return customer ? `${customer.name} ${customer.lastName}` : `Cliente #${customerId}`;
+    return customer ? `${customer.name} ${customer.lastName}` : mySales.find(s => s.customerId === customerId)?.customerName ?? `Cliente #${customerId}`;
   };
 
   if (loadingSales || loadingCustomers || loadingStats) {
@@ -308,6 +307,11 @@ export default function CommissionistDashboardPage() {
                     header: 'ID',
                     isCardTitle: true,
                     render: (sale) => `#${sale.id}`,
+                  },
+                  {
+                    key: 'saleType',
+                    header: 'Tipo',
+                    render: (sale) => sale.isCashSale ? 'Contado' : 'Crédito',
                   },
                   {
                     key: 'customer',

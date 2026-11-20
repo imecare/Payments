@@ -61,7 +61,7 @@ function Dashboard() {
     () => new Map(customers.map(c => [c.id, `${c.name} ${c.lastName}`])),
     [customers]
   );
-  const getCustomerName = (id: number) => customerMap.get(id) ?? 'Desconocido';
+  const getCustomerName = (id: number) => customerMap.get(id) ?? sales.find(s => s.customerId === id)?.customerName ?? 'Desconocido';
 
   // All derived computations memoized — only recalculate when sales/sellers change
   const derivedStats = useMemo(() => {

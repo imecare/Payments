@@ -29,6 +29,19 @@ export const salesApi = {
     return data;
   },
 
+  getDebtsExcel: async (): Promise<Blob> => {
+    const { data } = await apiClient.get<Blob>('/payment/PaySales/debts/excel', { responseType: 'blob' });
+    const signature = new Uint8Array(await data.slice(0, 4).arrayBuffer());
+    if (
+      data.type.split(';')[0] !== 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      || signature[0] !== 0x50 || signature[1] !== 0x4b
+      || signature[2] !== 0x03 || signature[3] !== 0x04
+    ) {
+      throw new Error('No se pudo descargar el reporte: la respuesta no es un archivo Excel válido.');
+    }
+    return data;
+  },
+
   /** Customer history search by phone/rfc (at least one required) */
   getHistory: async (params: { phone?: string; rfc?: string }): Promise<Sale[]> => {
     const { data } = await apiClient.get<Sale[]>('/payment/PaySales/history', { params });

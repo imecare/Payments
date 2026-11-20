@@ -31,7 +31,7 @@ export interface Customer {
   lastName: string;
   rfc: string;
   phone: string;
-  sellerId: number;
+  sellerId: number | null;
   seller?: Seller;
 }
 
@@ -80,6 +80,7 @@ export interface Sale {
   commissionAmount: number;
   isCommissionPaid: boolean;
   isPaid: boolean;
+  isCashSale?: boolean;
   date: string;
   commissionPaidAt?: string | null;
   customer?: Customer;
@@ -104,12 +105,15 @@ export interface CreateSaleDTO {
   commissionAmount: number;
   /** Optional date for the sale (defaults to today on backend) */
   date?: string;
+  isCashSale?: boolean;
+  paymentMethod?: PaymentMethod;
+  idempotencyKey?: string;
 }
 
 export interface CustomerDebt {
   customerId: number;
   customerName: string;
-  sellerId: number;
+  sellerId: number | null;
   sellerName: string;
   totalAmount: number;
   paidAmount: number;
