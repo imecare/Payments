@@ -97,7 +97,7 @@ export function useMarkCommissionPaid() {
   return useMutation({
     mutationFn: ({ saleId, paid = true, note }: { saleId: number; paid?: boolean; note?: string }) =>
       salesApi.markCommissionPaid(saleId, paid, note),
-    onMutate: async ({ saleId, paid }) => {
+    onMutate: async ({ saleId, paid = true, note }) => {
       // Cancelar queries en progreso
       await queryClient.cancelQueries({ queryKey: saleKeys.all });
       
@@ -110,7 +110,12 @@ export function useMarkCommissionPaid() {
         if (!oldSales) return oldSales;
         return oldSales.map((sale) =>
           sale.id === saleId
-            ? { ...sale, isCommissionPaid: paid, commissionPaidAt: paid ? new Date().toISOString() : null }
+            ? {
+                ...sale,
+                isCommissionPaid: paid,
+                commissionPaidAt: null,
+                commissionPaymentNote: paid ? note ?? null : null,
+              }
             : sale
         );
       };
@@ -131,9 +136,11 @@ export function useMarkCommissionPaid() {
     },
     onSettled: (_, __, { saleId }) => {
       // Refrescar datos del servidor
-      queryClient.invalidateQueries({ queryKey: saleKeys.all });
-      queryClient.invalidateQueries({ queryKey: saleKeys.detail(saleId) });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: saleKeys.all }),
+        queryClient.invalidateQueries({ queryKey: saleKeys.detail(saleId) }),
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
+      ]);
     },
   });
 }

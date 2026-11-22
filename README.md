@@ -2,6 +2,13 @@
 
 ## Payments: contado y reporte de deudas
 
+En **Ventas** del administrador y **Mis Ventas** del comisionista, las comisiones
+pagadas muestran la fecha y la nota capturada al registrar su pago. Tambien se
+muestran al consultar el detalle de la venta. Si no se capturo una nota o una
+venta antigua no tiene fecha, se indica explicitamente. Las comisiones pendientes
+o revertidas no muestran estos datos. Solo el administrador conserva las acciones
+para pagar o revertir; no se requiere una migracion de base de datos.
+
 - En **Ventas > Nueva venta**, elegir la pestana **A credito / De contado**. Contado exige
   comisionista y metodo de cobro (efectivo, tarjeta o transferencia).
 - Sin cliente seleccionado, el backend crea/reutiliza un cliente interno

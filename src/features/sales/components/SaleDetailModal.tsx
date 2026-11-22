@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Modal, Row, Col, Card, Table, Badge, Alert, Button, ProgressBar, Form } from 'react-bootstrap';
 import type { Sale, Payment } from '@/shared/types';
 import { PAYMENT_TYPE_ABONO } from '@/features/payments/hooks/usePayments';
+import CommissionPaymentDetails from './CommissionPaymentDetails';
 
 interface SaleDetailModalProps {
   sale: Sale | null;
@@ -156,12 +157,11 @@ export default function SaleDetailModal({
             )}
 
             {/* Botón para revertir comisión */}
-            {canPayCommission && sale.isCommissionPaid && (
+            {sale.isCommissionPaid && (
               <Alert variant="success" className="mt-3">
-                <small>
-                  Comisión pagada{sale.commissionPaidAt ? ` el ${new Date(sale.commissionPaidAt).toLocaleDateString('es-MX')}` : ''}.
-                </small>
-                <div className="mt-2">
+                <small>Comisión pagada.</small>
+                <CommissionPaymentDetails sale={sale} />
+                {canPayCommission && <div className="mt-2">
                   <Button
                     variant="outline-warning" size="sm"
                     onClick={() => handleOpenCommissionModal('revert')}
@@ -169,7 +169,7 @@ export default function SaleDetailModal({
                   >
                     {isPayingCommission ? 'Procesando...' : 'Revertir pago de comisión'}
                   </Button>
-                </div>
+                </div>}
               </Alert>
             )}
           </Col>

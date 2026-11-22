@@ -83,6 +83,7 @@ export interface Sale {
   isCashSale?: boolean;
   date: string;
   commissionPaidAt?: string | null;
+  commissionPaymentNote?: string | null;
   customer?: Customer;
   seller?: Seller;
   payments?: Payment[];

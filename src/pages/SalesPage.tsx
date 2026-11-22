@@ -18,6 +18,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorAlert from '../components/ErrorAlert';
 import ConfirmModal from '../components/ConfirmModal';
 import StatCard from '../components/StatCard';
+import CommissionPaymentDetails from '../features/sales/components/CommissionPaymentDetails';
 
 /** Devuelve la fecha actual en formato YYYY-MM-DD para el input type="date" */
 const todayISO = () => new Date().toISOString().split('T')[0];
@@ -177,9 +178,8 @@ function SaleDetailModal({
             {/* Botón para revertir comisión (solo si ya está pagada) */}
             {sale.isCommissionPaid && (
               <Alert variant="success" className="mt-3">
-                <small>
-                  Comisión pagada{sale.commissionPaidAt ? ` el ${new Date(sale.commissionPaidAt).toLocaleDateString('es-MX')}` : ''}.
-                </small>
+                <small>Comisión pagada.</small>
+                <CommissionPaymentDetails sale={sale} />
                 <div className="mt-2">
                   <Button 
                     variant="outline-warning" 
@@ -296,7 +296,8 @@ export default function SalesPage() {
   const [showPayCommissionModal, setShowPayCommissionModal] = useState(false);
   const [saleForCommission, setSaleForCommission] = useState<Sale | null>(null);
   const [commissionNote, setCommissionNote] = useState('');
-  const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
+  const [selectedSaleId, setSelectedSaleId] = useState<number | null>(null);
+  const selectedSale = sales.find((sale) => sale.id === selectedSaleId) ?? null;
   const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
   const [formData, setFormData] = useState<CreateSaleDTO>(() => emptySale());
   const [searchTerm, setSearchTerm] = useState('');
@@ -418,7 +419,7 @@ export default function SalesPage() {
   }, []);
 
   const handleViewDetail = useCallback((sale: Sale) => {
-    setSelectedSale(sale);
+    setSelectedSaleId(sale.id);
     setShowDetailModal(true);
   }, []);
 
@@ -529,11 +530,6 @@ export default function SalesPage() {
     
     try {
       await markCommissionPaidMutation.mutateAsync({ saleId: selectedSale.id, paid, note });
-      setSelectedSale({ 
-        ...selectedSale, 
-        isCommissionPaid: paid,
-        commissionPaidAt: paid ? new Date().toISOString() : null 
-      });
     } catch (err) {
       console.error('Error updating commission status:', err);
     }
@@ -768,7 +764,7 @@ export default function SalesPage() {
             header: 'Comisión',
             className: 'text-end',
             render: (s) => (
-              <span>
+              <div>
                 ${s.commissionAmount.toLocaleString()}
                 {s.isPaid && !s.isCommissionPaid && (
                   <Badge bg="warning" text="dark" className="ms-1" pill>Pagar</Badge>
@@ -776,7 +772,8 @@ export default function SalesPage() {
                 {s.isCommissionPaid && (
                   <Badge bg="success" className="ms-1" pill><FiCheckCircle /></Badge>
                 )}
-              </span>
+                <CommissionPaymentDetails sale={s} />
+              </div>
             ),
           },
           {

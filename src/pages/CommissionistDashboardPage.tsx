@@ -11,6 +11,7 @@ import { useCustomers } from '../features/customers/hooks/useCustomers';
 import { useCommissionistDashboardStats } from '../features/dashboard/hooks/useDashboard';
 import PaymentTable from '../features/payments/components/PaymentTable';
 import type { Sale, Customer } from '../shared/types';
+import CommissionPaymentDetails from '../features/sales/components/CommissionPaymentDetails';
 
 export default function CommissionistDashboardPage() {
   const { user } = useAuth();
@@ -345,7 +346,12 @@ export default function CommissionistDashboardPage() {
                     header: 'Estado',
                     render: (sale) => {
                       if (sale.isCommissionPaid) {
-                        return <Badge bg="info">Comisión pagada</Badge>;
+                        return (
+                          <div>
+                            <Badge bg="info">Comisión pagada</Badge>
+                            <CommissionPaymentDetails sale={sale} />
+                          </div>
+                        );
                       }
                       if (sale.isPaid) {
                         return <Badge bg="success">Comisión lista para pago</Badge>;
@@ -369,7 +375,15 @@ export default function CommissionistDashboardPage() {
             </Card.Header>
             <Card.Body>
               {selectedSale ? (
-                <PaymentTable saleId={selectedSale.id} totalAmount={selectedSale.totalAmount} />
+                <>
+                  {selectedSale.isCommissionPaid && (
+                    <Alert variant="success">
+                      <strong>Comisión pagada</strong>
+                      <CommissionPaymentDetails sale={selectedSale} />
+                    </Alert>
+                  )}
+                  <PaymentTable saleId={selectedSale.id} totalAmount={selectedSale.totalAmount} />
+                </>
               ) : (
                 <Alert variant="light" className="mb-0">
                   Haz clic en una venta de la tabla para ver su historial de pagos y el saldo actual.
